@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p backend/src/config backend/src/controllers backend/src/services backend/src/routes backend/src/middlewares backend/src/models backend/src/utils backend/src/prompts backend/src/validations backend/src/helpers backend/src/sockets backend/src/jobs backend/src/uploads)",
+      "Bash(mkdir -p frontend/src/pages frontend/src/components frontend/src/layouts frontend/src/context frontend/src/services frontend/src/hooks frontend/src/utils frontend/src/styles)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(where ngrok *)",
+      "Bash(node src/jobs/seed.js)",
+      "Bash(node src/jobs/seedAdmin.js)",
+      "Bash(node -e ' *)",
+      "Bash(node src/server.js)",
+      "Bash(timeout 5)",
+      "Bash(curl -s http://localhost:5000/health)",
+      "Bash(ngrok config *)",
+      "PowerShell(Invoke-WebRequest -Uri \"https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip\" -OutFile \"$env:USERPROFILE\\\\Desktop\\\\ngrok.zip\")",
+      "PowerShell(Expand-Archive *)",
+      "PowerShell(& \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" config add-authtoken 2sVKsq4NWTzkHo535O5GQSHM0Yd_7zCfZ9mqfYjHjB5rHiNUR)",
+      "PowerShell(try { $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message } catch { \"Backend no responde - reiniciando...\"; Start-Process -NoNewWindow -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresata\\\\backend\" })",
+      "PowerShell(Start-Process -FilePath \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" -ArgumentList \"http 5000\" -PassThru | Select-Object Id)",
+      "PowerShell(Start-Sleep -Seconds 3; try { $response = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\" -ErrorAction Stop; $response.tunnels | ForEach-Object { $_.public_url } } catch { \"Esperando ngrok...\" })",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresata\\\\backend\" -WindowStyle Hidden; Start-Sleep -Seconds 3; $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message)",
+      "PowerShell(try { $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\" -ErrorAction Stop; $t.tunnels[0].public_url } catch { \"ngrok no está corriendo - reiniciando...\"; Start-Process -FilePath \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" -ArgumentList \"http 5000\"; Start-Sleep -Seconds 3; $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\"; $t.tunnels[0].public_url })"
+    ]
+  }
+}
