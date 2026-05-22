@@ -47,8 +47,8 @@ class ContentTemplateService {
             button: buttonText,
             items: items.map((item) => ({
               id: item.id,
-              item: item.title,
-              description: item.description || ''
+              item: (item.title || '').substring(0, 24),
+              description: (item.description || '').substring(0, 72)
             }))
           }
         }
