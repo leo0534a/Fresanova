@@ -1,11 +1,10 @@
-// Controlador del webhook de WhatsApp (Twilio)
 const conversationService = require('../services/conversationService');
 const logger = require('../utils/logger');
 
 class WebhookController {
-  // POST /webhook — Recibir mensajes de WhatsApp
   async handleIncoming(req, res) {
     try {
+      // Capturamos todos los campos que envía Twilio
       const {
         Body: messageBody,
         From: from,
@@ -18,14 +17,14 @@ class WebhookController {
         MediaContentType0: mediaContentType0
       } = req.body;
 
-      const textContent = messageBody || '';
-      const hasInteraction = buttonPayload || listId;
+      const textContent = messageBody ? messageBody.trim() : '';
       const hasMedia = parseInt(numMedia, 10) > 0;
       const mediaUrl = hasMedia ? mediaUrl0 : null;
 
-      logger.info(`📩 Mensaje de ${from}: ${textContent}${buttonPayload ? ` [Botón: ${buttonPayload}]` : ''}${listId ? ` [Lista: ${listId}]` : ''}${mediaUrl ? ` [Media: ${mediaContentType0}]` : ''}`);
+      logger.info(`📩 Mensaje de ${from}: Texto="${textContent}" | Botón="${buttonPayload || 'Ninguno'}" | Lista="${listId || 'Ninguna'}"`);
 
-      if (!textContent && !hasInteraction && !hasMedia) {
+      // Evitamos procesar webhooks vacíos sin interacción ni texto
+      if (!textContent && !buttonPayload && !listId && !hasMedia) {
         return res.status(200).send('<Response></Response>');
       }
 
@@ -33,16 +32,22 @@ class WebhookController {
         return res.status(200).send('<Response></Response>');
       }
 
-      await conversationService.processMessage(from, textContent, buttonPayload || null, listId || null, mediaUrl);
+      // ALINEACIÓN CORRECTA: Pasamos los 5 parámetros tal y como los espera tu conversationService
+      await conversationService.processMessage(
+        from, 
+        textContent, 
+        buttonPayload || null, 
+        listId || null, 
+        mediaUrl
+      );
 
       res.status(200).send('<Response></Response>');
     } catch (error) {
-      logger.error('Error en webhook:', error);
+      logger.error('❌ Error crítico en webhook:', error);
       res.status(200).send('<Response></Response>');
     }
   }
 
-  // GET /webhook — Verificación del webhook
   async verify(req, res) {
     res.status(200).json({
       success: true,
