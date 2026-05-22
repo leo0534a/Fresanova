@@ -1,5 +1,6 @@
 // Aplicación Express principal
 const express = require('express');
+const path = require('path'); // Importación de 'path' movida al inicio
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -78,7 +79,6 @@ app.use('/uploads', express.static('src/uploads'));
 app.use('/images', express.static(path.join(__dirname, '../../Imagenes')));
 
 // === Frontend estático en producción ===
-const path = require('path');
 const frontendPath = path.join(__dirname, '../../frontend/dist');
 if (config.isProduction) {
   app.use(express.static(frontendPath, {

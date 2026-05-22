@@ -1,0 +1,27 @@
+========================================
+PASO 1: Presiona Ctrl+C si el terminal esta esperando input
+========================================
+
+========================================
+PASO 2: Copia y pega SOLO esta linea (crea el archivo JS en el servidor):
+========================================
+
+echo "const mongoose=require('mongoose');const bcrypt=require('bcryptjs');require('dotenv').config();mongoose.connect(process.env.MONGODB_URI).then(async()=>{const Admin=require('./src/models/Admin');const hash=await bcrypt.hash('(+8jAH+W4YpA946',12);await Admin.findOneAndUpdate({email:'admin@fresanova.com'},{password:hash});console.log('Contrasena actualizada');process.exit(0);}).catch(e=>{console.error(e);process.exit(1);});" > /tmp/reset-admin.js
+
+========================================
+PASO 3: Copia y pega SOLO esta linea (copia el archivo al contenedor):
+========================================
+
+docker cp /tmp/reset-admin.js $(docker ps -q -f name=fresanova):/app/backend/reset-admin.js
+
+========================================
+PASO 4: Copia y pega SOLO esta linea (ejecuta el script):
+========================================
+
+docker exec $(docker ps -q -f name=fresanova) node reset-admin.js
+
+========================================
+PASO 5: Prueba iniciar sesion con:
+   Email: admin@fresanova.com
+   Password: (+8jAH+W4YpA946
+========================================

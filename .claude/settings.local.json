@@ -16,12 +16,18 @@
       "PowerShell(Invoke-WebRequest -Uri \"https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip\" -OutFile \"$env:USERPROFILE\\\\Desktop\\\\ngrok.zip\")",
       "PowerShell(Expand-Archive *)",
       "PowerShell(& \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" config add-authtoken 2sVKsq4NWTzkHo535O5GQSHM0Yd_7zCfZ9mqfYjHjB5rHiNUR)",
-      "PowerShell(try { $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message } catch { \"Backend no responde - reiniciando...\"; Start-Process -NoNewWindow -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresata\\\\backend\" })",
+      "PowerShell(try { $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message } catch { \"Backend no responde - reiniciando...\"; Start-Process -NoNewWindow -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresanova\\\\backend\" })",
       "PowerShell(Start-Process -FilePath \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" -ArgumentList \"http 5000\" -PassThru | Select-Object Id)",
       "PowerShell(Start-Sleep -Seconds 3; try { $response = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\" -ErrorAction Stop; $response.tunnels | ForEach-Object { $_.public_url } } catch { \"Esperando ngrok...\" })",
       "PowerShell(Get-Process *)",
-      "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresata\\\\backend\" -WindowStyle Hidden; Start-Sleep -Seconds 3; $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message)",
-      "PowerShell(try { $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\" -ErrorAction Stop; $t.tunnels[0].public_url } catch { \"ngrok no está corriendo - reiniciando...\"; Start-Process -FilePath \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" -ArgumentList \"http 5000\"; Start-Sleep -Seconds 3; $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\"; $t.tunnels[0].public_url })"
+      "PowerShell(Start-Process -FilePath \"node\" -ArgumentList \"src/server.js\" -WorkingDirectory \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\Fresanova\\\\backend\" -WindowStyle Hidden; Start-Sleep -Seconds 3; $r = Invoke-RestMethod -Uri \"http://localhost:5000/health\" -ErrorAction Stop; $r.message)",
+      "PowerShell(try { $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\" -ErrorAction Stop; $t.tunnels[0].public_url } catch { \"ngrok no está corriendo - reiniciando...\"; Start-Process -FilePath \"$env:USERPROFILE\\\\Desktop\\\\ngrok-bin\\\\ngrok.exe\" -ArgumentList \"http 5000\"; Start-Sleep -Seconds 3; $t = Invoke-RestMethod -Uri \"http://127.0.0.1:4040/api/tunnels\"; $t.tunnels[0].public_url })",
+      "PowerShell(Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://localhost:5000/health\" -UseBasicParsing -TimeoutSec 5; \"Backend OK: $\\($r.StatusCode\\)\" } catch { \"Backend: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5173\" -UseBasicParsing -TimeoutSec 5; \"Frontend OK: $\\($r.StatusCode\\)\" } catch { \"Frontend: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(ngrok http *)",
+      "PowerShell(Start-Process cmd -ArgumentList \"/c\",\"ngrok http 5000\" -WindowStyle Normal; Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:4040/api/tunnels\" -UseBasicParsing -TimeoutSec 5; $data = $r.Content | ConvertFrom-Json; $data.tunnels | ForEach-Object { \"$\\($_.proto\\): $\\($_.public_url\\)\" } } catch { \"Error obteniendo URL de ngrok: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(Start-Process cmd -ArgumentList \"/c\",\"ngrok http 5000\" -WindowStyle Normal; Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:4040/api/tunnels\" -UseBasicParsing -TimeoutSec 5; $data = $r.Content | ConvertFrom-Json; $url = \\($data.tunnels | Where-Object { $_.proto -eq \"https\" }\\).public_url; \"$url/webhook\" } catch { \"Error: $\\($_.Exception.Message\\)\" })"
     ]
   }
 }

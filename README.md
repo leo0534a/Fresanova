@@ -1,6 +1,6 @@
-# 🍓 Fresata — Sistema de Pedidos por WhatsApp con IA
+# 🍓 Fresanova — Sistema de Pedidos por WhatsApp con IA
 
-Sistema profesional de pedidos por WhatsApp para **Fresata**, negocio de fresas con crema, bebidas y fresas con chocolate ubicado en Cartagena, Colombia.
+Sistema profesional de pedidos por WhatsApp para **Fresanova**, negocio de fresas con crema, bebidas y fresas con chocolate ubicado en Cartagena, Colombia.
 
 ## Características Principales
 
@@ -63,7 +63,7 @@ Sistema profesional de pedidos por WhatsApp para **Fresata**, negocio de fresas 
 ### 1. Clonar el repositorio
 ```bash
 git clone <repo-url>
-cd Fresata
+cd Fresanova
 ```
 
 ### 2. Configurar Backend
@@ -111,7 +111,7 @@ POST https://tu-dominio.com/webhook
 
 | Campo | Valor |
 |-------|-------|
-| Email Admin | admin@fresata.com |
+| Email Admin | admin@Fresanova.com |
 | Contraseña | Admin123* |
 
 ---
@@ -196,7 +196,7 @@ Misma estructura CRUD bajo `/api/products/categories`, `/api/products/toppings`,
 ## Estructura del Proyecto
 
 ```
-Fresata/
+Fresanova/
 ├── backend/
 │   ├── src/
 │   │   ├── config/          # Configuración de entorno y BD
@@ -230,7 +230,7 @@ Fresata/
 
 ## Información del Negocio
 
-- **Nombre:** Fresata
+- **Nombre:** Fresanova
 - **Ciudad:** Cartagena, Colombia
 - **Horario:** 8:00 AM — 8:00 PM
 - **Domicilio:** $10.000 COP fijo
@@ -240,4 +240,4 @@ Fresata/
 
 ## Licencia
 
-Proyecto privado — Fresata © 2025
+Proyecto privado — Fresanova © 2025
