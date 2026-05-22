@@ -77,7 +77,8 @@ const conversationSchema = new mongoose.Schema(
       addressReference: String,
       phone: String,
       paymentMethod: String,
-      transferProofUrl: String
+      transferProofUrl: String,
+      transferConfirmed: { type: Boolean, default: false }
     },
     // Item en proceso de configuración
     currentItem: {

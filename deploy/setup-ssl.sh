@@ -6,19 +6,15 @@
 
 set -e
 
-echo "🍓 =========================================="
-echo "   FRESANOVA - Configuración SSL/HTTPS"
-echo "🍓 =========================================="
-echo ""
-
-# --- Pedir datos ---
-read -p "📌 Tu subdominio DuckDNS (sin .duckdns.org): " DUCK_SUBDOMAIN
-read -p "🔑 Tu token de DuckDNS: " DUCK_TOKEN
-read -p "📧 Tu email (para Let's Encrypt): " LE_EMAIL
-
+DUCK_SUBDOMAIN="fresanova"
+DUCK_TOKEN="e7b0d3c7-6dcf-49af-a25b-6bb3e4ff884c"
+LE_EMAIL="leonardoandres.2026.z@gmail.com"
 DOMAIN="${DUCK_SUBDOMAIN}.duckdns.org"
 SERVER_IP=$(curl -4 -s ifconfig.me)
 
+echo "🍓 =========================================="
+echo "   FRESANOVA - Configuración SSL/HTTPS"
+echo "🍓 =========================================="
 echo ""
 echo "   Dominio: $DOMAIN"
 echo "   IP del servidor: $SERVER_IP"
@@ -148,10 +144,7 @@ limit_req_zone $binary_remote_addr zone=api:10m rate=5r/s;
 limit_req_zone $binary_remote_addr zone=login:10m rate=1r/s;
 RATELIMIT
 
-# Reconfigurar el bloque server que Certbot generó para agregar seguridad extra
-# Certbot ya maneja los bloques listen 443 y los certificados
-# Agregamos solo las directivas de seguridad adicionales
-
+# Headers de seguridad
 cat > /etc/nginx/snippets/security-headers.conf << 'SECHEADERS'
 add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 add_header X-Frame-Options "SAMEORIGIN" always;
@@ -259,6 +252,22 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
     }
 
+    # Imágenes del negocio
+    location /images {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Uploads
+    location /uploads {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+
     # Socket.io
     location /socket.io {
         proxy_pass http://127.0.0.1:5000;
@@ -297,7 +306,6 @@ echo "   ✅ Nginx configurado con seguridad completa"
 # --- 6. Configurar renovación automática de SSL ---
 echo ""
 echo "🔄 Configurando renovación automática de SSL..."
-# Certbot ya instala un timer de systemd, pero verificamos
 systemctl enable certbot.timer 2>/dev/null || true
 echo "   ✅ Renovación automática configurada"
 
@@ -313,11 +321,6 @@ echo "   🛡️ Headers de seguridad: activos"
 echo "   ⚡ HTTP/2: activo"
 echo "   🔄 HTTP -> HTTPS: redirección automática"
 echo "   🦆 DuckDNS: actualización cada 5 minutos"
-echo ""
-echo "   📋 Recuerda actualizar en backend/.env:"
-echo "      FRONTEND_URL=https://$DOMAIN"
-echo "      BACKEND_URL=https://$DOMAIN"
-echo "      ALLOWED_ORIGINS=https://$DOMAIN"
 echo ""
 echo "   Luego reinicia la app: pm2 restart fresanova-api"
 echo ""
