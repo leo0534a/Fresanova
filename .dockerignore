@@ -4,7 +4,7 @@ node_modules
 .env
 *.md
 deploy/
-Imagenes/
+Imagenes/error.jpeg
 frontend/dist
 backend/logs
 image.png

@@ -73,8 +73,9 @@ app.get('/health', (req, res) => {
 // === Rutas ===
 app.use(routes);
 
-// === Archivos estáticos (uploads) ===
+// === Archivos estáticos (uploads e imágenes del negocio) ===
 app.use('/uploads', express.static('src/uploads'));
+app.use('/images', express.static(path.join(__dirname, '../../Imagenes')));
 
 // === Frontend estático en producción ===
 const path = require('path');

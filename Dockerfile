@@ -17,6 +17,8 @@ COPY backend/ ./
 
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
+COPY Imagenes/ /app/Imagenes/
+
 RUN mkdir -p logs src/uploads && chown -R node:node /app
 
 EXPOSE 5000
