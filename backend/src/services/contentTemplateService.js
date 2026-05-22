@@ -16,7 +16,7 @@ class ContentTemplateService {
   async createQuickReply(friendlyName, body, actions) {
     try {
       const content = await this.client.content.v1.contents.create({
-        friendlyName: `Fresanova_${friendlyName}`, // <-- Removido Date.now() para mantener nombre estático único
+        friendlyName: `FresanovaV2_${friendlyName}`, // <-- Cambiado a V2 para saltar duplicados en Twilio
         language: 'es',
         variables: {},
         types: {
@@ -38,7 +38,7 @@ class ContentTemplateService {
   async createListPicker(friendlyName, body, buttonText, items) {
     try {
       const content = await this.client.content.v1.contents.create({
-        friendlyName: `Fresanova_${friendlyName}`, // <-- Removido Date.now() para mantener nombre estático único
+        friendlyName: `FresanovaV2_${friendlyName}`, // <-- Cambiado a V2 para saltar duplicados en Twilio
         language: 'es',
         variables: {},
         types: {
