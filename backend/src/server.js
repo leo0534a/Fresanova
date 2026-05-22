@@ -1,19 +1,17 @@
 // Punto de entrada del servidor
+const http = require('http');
 const { config, validateEnv } = require('./config/env');
 const connectDatabase = require('./config/database');
 const app = require('./app');
+const socketService = require('./services/socketService');
 const logger = require('./utils/logger');
 
-// Validar variables de entorno
 validateEnv();
 
-// Iniciar servidor
 const startServer = async () => {
   try {
-    // Conectar a MongoDB
     await connectDatabase();
 
-    // Crear directorio de logs si no existe
     const fs = require('fs');
     const path = require('path');
     const logsDir = path.join(__dirname, '../logs');
@@ -21,23 +19,26 @@ const startServer = async () => {
       fs.mkdirSync(logsDir, { recursive: true });
     }
 
-    // Inicializar Content Templates de Twilio (botones y listas interactivas)
+    // Inicializar Content Templates de Twilio
     const contentTemplateService = require('./services/contentTemplateService');
     await contentTemplateService.initialize();
 
-    // Iniciar el servidor HTTP
-    const server = app.listen(config.port, () => {
+    // Crear servidor HTTP y vincular Socket.IO
+    const server = http.createServer(app);
+    socketService.initialize(server);
+
+    server.listen(config.port, () => {
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      logger.info(`🍓 Fresata Backend v1.0.0`);
+      logger.info(`🍓 Fresanova Backend v2.0.0`);
       logger.info(`🚀 Servidor corriendo en puerto ${config.port}`);
       logger.info(`🌍 Entorno: ${config.nodeEnv}`);
       logger.info(`📡 Webhook: ${config.backendUrl}/webhook`);
       logger.info(`🏥 Health: ${config.backendUrl}/health`);
       logger.info(`📊 API: ${config.backendUrl}/api`);
+      logger.info(`🔌 Socket.IO: activo`);
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });
 
-    // Manejo de errores del servidor
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
         logger.error(`❌ El puerto ${config.port} ya está en uso`);
@@ -46,7 +47,6 @@ const startServer = async () => {
       throw error;
     });
 
-    // Manejo graceful shutdown
     const gracefulShutdown = (signal) => {
       logger.info(`\n${signal} recibido. Cerrando servidor...`);
       server.close(() => {
@@ -58,7 +58,6 @@ const startServer = async () => {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-    // Manejo de errores no capturados
     process.on('unhandledRejection', (error) => {
       logger.error('❌ Unhandled Rejection:', error);
     });

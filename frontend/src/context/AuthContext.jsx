@@ -6,13 +6,14 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('fresanova_token'));
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Verificar sesión al cargar la app
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('fresata_token');
+      const token = localStorage.getItem('fresanova_token');
       if (!token) {
         setLoading(false);
         return;
@@ -23,7 +24,7 @@ export function AuthProvider({ children }) {
         setAdmin(response.data.data.admin);
         setIsAuthenticated(true);
       } catch {
-        localStorage.removeItem('fresata_token');
+        localStorage.removeItem('fresanova_token');
         setIsAuthenticated(false);
       } finally {
         setLoading(false);
@@ -38,7 +39,8 @@ export function AuthProvider({ children }) {
       const response = await api.post('/auth/login', { email, password });
       const { token, admin: adminData } = response.data.data;
 
-      localStorage.setItem('fresata_token', token);
+      localStorage.setItem('fresanova_token', token);
+      setToken(token);
       setAdmin(adminData);
       setIsAuthenticated(true);
       toast.success('¡Bienvenido! 🍓');
@@ -52,14 +54,15 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('fresata_token');
+    localStorage.removeItem('fresanova_token');
+    setToken(null);
     setAdmin(null);
     setIsAuthenticated(false);
     toast.success('Sesión cerrada');
   };
 
   return (
-    <AuthContext.Provider value={{ admin, isAuthenticated, loading, login, logout }}>
+    <AuthContext.Provider value={{ admin, token, isAuthenticated, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

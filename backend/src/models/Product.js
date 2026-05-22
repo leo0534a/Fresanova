@@ -32,7 +32,7 @@ const productSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      default: 'https://via.placeholder.com/400x300?text=Fresata+Producto'
+      default: 'https://via.placeholder.com/400x300?text=Fresanova+Producto'
     },
     // Indica si el producto permite agregar toppings
     allowsToppings: {
@@ -71,6 +71,13 @@ const productSchema = new mongoose.Schema(
       {
         name: { type: String, trim: true },
         extraPrice: { type: Number, default: 0 }
+      }
+    ],
+    // Tamaños del producto (ej: Pequeño, Mediano, Grande con precios distintos)
+    sizes: [
+      {
+        name: { type: String, trim: true },
+        price: { type: Number, required: true }
       }
     ],
     isActive: {

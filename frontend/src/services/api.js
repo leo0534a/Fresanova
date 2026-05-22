@@ -13,7 +13,7 @@ const api = axios.create({
 // Interceptor para agregar token a las peticiones
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('fresata_token');
+    const token = localStorage.getItem('fresanova_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,7 +27,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('fresata_token');
+      localStorage.removeItem('fresanova_token');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }

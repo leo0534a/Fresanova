@@ -13,7 +13,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState({
     name: '', description: '', basePrice: '', category: '',
     allowsToppings: false, allowsSauces: false, includedToppings: 0, includedSauces: 0,
-    includesNote: '', isActive: true
+    includesNote: '', isActive: true, sizes: []
   });
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function ProductsPage() {
     setForm({
       name: '', description: '', basePrice: '', category: categories[0]?._id || '',
       allowsToppings: false, allowsSauces: false, includedToppings: 0, includedSauces: 0,
-      includesNote: '', isActive: true
+      includesNote: '', isActive: true, sizes: []
     });
     setShowModal(true);
   };
@@ -57,15 +57,36 @@ export default function ProductsPage() {
       includedToppings: product.includedToppings || 0,
       includedSauces: product.includedSauces || 0,
       includesNote: product.includesNote || '',
-      isActive: product.isActive
+      isActive: product.isActive,
+      sizes: product.sizes || []
     });
     setShowModal(true);
+  };
+
+  const addSize = () => {
+    setForm({ ...form, sizes: [...form.sizes, { name: '', price: '' }] });
+  };
+
+  const updateSize = (index, field, value) => {
+    const updatedSizes = [...form.sizes];
+    updatedSizes[index] = { ...updatedSizes[index], [field]: value };
+    setForm({ ...form, sizes: updatedSizes });
+  };
+
+  const removeSize = (index) => {
+    setForm({ ...form, sizes: form.sizes.filter((_, i) => i !== index) });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const data = { ...form, basePrice: Number(form.basePrice) };
+      const data = {
+        ...form,
+        basePrice: Number(form.basePrice),
+        sizes: form.sizes
+          .filter((s) => s.name && s.price)
+          .map((s) => ({ name: s.name, price: Number(s.price) }))
+      };
       if (editingProduct) {
         await api.put(`/products/${editingProduct._id}`, data);
         toast.success('Producto actualizado');
@@ -94,7 +115,7 @@ export default function ProductsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-fresata-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-fresanova-500 border-t-transparent"></div>
       </div>
     );
   }
@@ -140,7 +161,19 @@ export default function ProductsPage() {
                       {product.category?.emoji} {product.category?.name}
                     </span>
                   </td>
-                  <td className="table-cell font-semibold">{formatCurrency(product.basePrice)}</td>
+                  <td className="table-cell font-semibold">
+                    {product.sizes && product.sizes.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {product.sizes.map((s, i) => (
+                          <p key={i} className="text-xs">
+                            <span className="text-gray-500">{s.name}:</span> {formatCurrency(s.price)}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      formatCurrency(product.basePrice)
+                    )}
+                  </td>
                   <td className="table-cell text-xs">
                     {product.allowsToppings && <span className="badge bg-purple-100 text-purple-700 mr-1">Toppings</span>}
                     {product.allowsSauces && <span className="badge bg-amber-100 text-amber-700">Salsas</span>}
@@ -207,13 +240,49 @@ export default function ProductsPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nota de lo que incluye</label>
                 <input type="text" value={form.includesNote} onChange={(e) => setForm({ ...form, includesNote: e.target.value })} className="input-field" placeholder="Ej: Incluye arequipe o leche condensada" />
               </div>
+              {/* Tamaños */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tamaños (opcional)</label>
+                  <button type="button" onClick={addSize} className="text-xs text-fresanova-600 hover:text-fresanova-700 font-medium">
+                    + Agregar tamaño
+                  </button>
+                </div>
+                {form.sizes.length > 0 && (
+                  <div className="space-y-2">
+                    {form.sizes.map((size, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={size.name}
+                          onChange={(e) => updateSize(index, 'name', e.target.value)}
+                          className="input-field flex-1"
+                          placeholder="Ej: Pequeño"
+                        />
+                        <input
+                          type="number"
+                          value={size.price}
+                          onChange={(e) => updateSize(index, 'price', e.target.value)}
+                          className="input-field w-32"
+                          placeholder="Precio"
+                          min="0"
+                        />
+                        <button type="button" onClick={() => removeSize(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg dark:hover:bg-red-900/20">
+                          <HiOutlineX className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-500">Si hay tamaños, el precio base se ignora en el bot.</p>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.allowsToppings} onChange={(e) => setForm({ ...form, allowsToppings: e.target.checked })} className="w-4 h-4 rounded text-fresata-500" />
+                  <input type="checkbox" checked={form.allowsToppings} onChange={(e) => setForm({ ...form, allowsToppings: e.target.checked })} className="w-4 h-4 rounded text-fresanova-500" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Permite toppings</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.allowsSauces} onChange={(e) => setForm({ ...form, allowsSauces: e.target.checked })} className="w-4 h-4 rounded text-fresata-500" />
+                  <input type="checkbox" checked={form.allowsSauces} onChange={(e) => setForm({ ...form, allowsSauces: e.target.checked })} className="w-4 h-4 rounded text-fresanova-500" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Permite salsas</span>
                 </label>
               </div>
@@ -230,7 +299,7 @@ export default function ProductsPage() {
                 </div>
               )}
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="w-4 h-4 rounded text-fresata-500" />
+                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="w-4 h-4 rounded text-fresanova-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Producto activo</span>
               </label>
               <div className="flex gap-3 pt-2">

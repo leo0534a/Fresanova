@@ -17,7 +17,7 @@ const seedAdmin = async () => {
       console.log('   Si necesitas recrearlo, elimínalo primero de la base de datos.');
     } else {
       const admin = await Admin.create({
-        name: 'Administrador Fresata',
+        name: 'Administrador Fresanova',
         email: config.admin.email,
         password: config.admin.password,
         role: 'superadmin'

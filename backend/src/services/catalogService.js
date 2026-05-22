@@ -23,7 +23,15 @@ class CatalogService {
         );
 
         for (const product of categoryProducts) {
-          catalogText += `  • ${product.name}: ${formatCurrency(product.basePrice)}`;
+          if (product.sizes && product.sizes.length > 0) {
+            // Producto con tamaños — mostrar rango de precios
+            const sizesText = product.sizes.map(
+              (s) => `${s.name}: ${formatCurrency(s.price)}`
+            ).join(' | ');
+            catalogText += `  • ${product.name}: ${sizesText}`;
+          } else {
+            catalogText += `  • ${product.name}: ${formatCurrency(product.basePrice)}`;
+          }
           if (product.includesNote) {
             catalogText += ` (${product.includesNote})`;
           }
@@ -96,7 +104,7 @@ class CatalogService {
 
   // Formatear categorías como menú de WhatsApp
   formatCategoriesMenu(categories) {
-    let menu = '🍓✨ *MENÚ FRESATA* ✨🍓\n\n';
+    let menu = '🍓✨ *MENÚ Fresanova* ✨🍓\n\n';
     menu += '¿Qué se te antoja hoy, mi amor?\n\n';
 
     categories.forEach((cat, index) => {
@@ -116,7 +124,14 @@ class CatalogService {
 
     products.forEach((product, index) => {
       list += `${index + 1}️⃣ *${product.name}*\n`;
-      list += `   💰 ${formatCurrency(product.basePrice)}\n`;
+      if (product.sizes && product.sizes.length > 0) {
+        const minPrice = Math.min(...product.sizes.map((s) => s.price));
+        list += `   💰 Desde ${formatCurrency(minPrice)}\n`;
+        const sizesDesc = product.sizes.map((s) => `${s.name}: ${formatCurrency(s.price)}`).join(' | ');
+        list += `   📐 ${sizesDesc}\n`;
+      } else {
+        list += `   💰 ${formatCurrency(product.basePrice)}\n`;
+      }
       if (product.includesNote) {
         list += `   📝 ${product.includesNote}\n`;
       }

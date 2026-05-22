@@ -72,7 +72,7 @@ export default function ToppingsPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-fresata-500 border-t-transparent"></div></div>;
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-fresanova-500 border-t-transparent"></div></div>;
   }
 
   const ItemTable = ({ items, type, title, emoji }) => (
@@ -153,7 +153,7 @@ export default function ToppingsPage() {
                 <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="input-field" required min="0" />
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="w-4 h-4 rounded text-fresata-500" />
+                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="w-4 h-4 rounded text-fresanova-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Activo</span>
               </label>
               <div className="flex gap-3 pt-2">

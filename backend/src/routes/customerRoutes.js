@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.get('/', (req, res, next) => customerController.getCustomers(req, res, next));
 router.get('/:id', (req, res, next) => customerController.getCustomer(req, res, next));
+router.get('/:id/messages', (req, res, next) => customerController.getCustomerMessages(req, res, next));
 router.put('/:id', (req, res, next) => customerController.updateCustomer(req, res, next));
 
 module.exports = router;

@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        fresata: {
+        fresanova: {
           50: '#fdf2f8',
           100: '#fce7f3',
           200: '#fbcfe8',

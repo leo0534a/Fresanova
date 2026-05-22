@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
-import { HiOutlineSearch, HiOutlineEye, HiOutlineX } from 'react-icons/hi';
+import { HiOutlineSearch, HiOutlineEye, HiOutlineX, HiOutlineChatAlt2 } from 'react-icons/hi';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -13,6 +13,10 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerOrders, setCustomerOrders] = useState([]);
   const [showDetail, setShowDetail] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatCustomerName, setChatCustomerName] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
 
   useEffect(() => { loadCustomers(); }, [page]);
 
@@ -43,8 +47,19 @@ export default function CustomersPage() {
     } catch { toast.error('Error al cargar cliente'); }
   };
 
+  const viewChat = async (id) => {
+    try {
+      setLoadingChat(true);
+      const response = await api.get(`/customers/${id}/messages`);
+      setChatMessages(response.data.data.messages);
+      setChatCustomerName(response.data.data.customer.fullName || 'Cliente');
+      setShowChat(true);
+    } catch { toast.error('Error al cargar conversación'); }
+    finally { setLoadingChat(false); }
+  };
+
   if (loading && customers.length === 0) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-fresata-500 border-t-transparent"></div></div>;
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-fresanova-500 border-t-transparent"></div></div>;
   }
 
   return (
@@ -95,9 +110,14 @@ export default function CustomersPage() {
                   <td className="table-cell font-semibold text-green-600">{formatCurrency(customer.totalSpent)}</td>
                   <td className="table-cell text-xs">{customer.lastInteraction ? formatDateTime(customer.lastInteraction) : '-'}</td>
                   <td className="table-cell">
-                    <button onClick={() => viewCustomer(customer._id)} className="p-1.5 rounded-lg text-gray-500 hover:text-fresata-600 hover:bg-fresata-50">
-                      <HiOutlineEye className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => viewCustomer(customer._id)} className="p-1.5 rounded-lg text-gray-500 hover:text-fresanova-600 hover:bg-fresanova-50" title="Ver detalle">
+                        <HiOutlineEye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => viewChat(customer._id)} className="p-1.5 rounded-lg text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Ver conversación">
+                        <HiOutlineChatAlt2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -159,7 +179,7 @@ export default function CustomersPage() {
                     {customerOrders.map((order) => (
                       <div key={order._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-sm">
                         <div>
-                          <p className="font-medium text-fresata-600">{order.orderNumber}</p>
+                          <p className="font-medium text-fresanova-600">{order.orderNumber}</p>
                           <p className="text-xs text-gray-500">{formatDateTime(order.createdAt)}</p>
                         </div>
                         <div className="text-right">
@@ -170,6 +190,55 @@ export default function CustomersPage() {
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de conversación */}
+      {showChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
+                  {chatCustomerName.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-900 dark:text-white">{chatCustomerName}</h2>
+                  <p className="text-xs text-gray-500">Conversación con el bot</p>
+                </div>
+              </div>
+              <button onClick={() => setShowChat(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <HiOutlineX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.05\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }}>
+              {loadingChat ? (
+                <div className="flex items-center justify-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
+                </div>
+              ) : chatMessages.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">No hay mensajes registrados</div>
+              ) : (
+                chatMessages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                      msg.direction === 'inbound'
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-tl-md'
+                        : 'bg-green-500 text-white rounded-tr-md'
+                    }`}>
+                      <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                      <p className={`text-[10px] mt-1 text-right ${
+                        msg.direction === 'inbound' ? 'text-gray-400' : 'text-green-100'
+                      }`}>
+                        {new Date(msg.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>

@@ -10,6 +10,10 @@ router.use(authenticate);
 router.get('/', (req, res, next) => orderController.getOrders(req, res, next));
 router.get('/:id', (req, res, next) => orderController.getOrder(req, res, next));
 router.patch('/:id/status', (req, res, next) => orderController.updateStatus(req, res, next));
+router.post('/:id/confirm-transfer', (req, res, next) => {
+  const chatController = require('../controllers/chatController');
+  chatController.confirmTransfer(req, res, next);
+});
 router.delete('/:id', authorize('superadmin', 'admin'), (req, res, next) => orderController.deleteOrder(req, res, next));
 
 module.exports = router;

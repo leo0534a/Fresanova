@@ -4,7 +4,7 @@ const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('fresata_theme');
+    const saved = localStorage.getItem('Fresanova_theme');
     return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
@@ -12,10 +12,10 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement;
     if (darkMode) {
       root.classList.add('dark');
-      localStorage.setItem('fresata_theme', 'dark');
+      localStorage.setItem('Fresanova_theme', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('fresata_theme', 'light');
+      localStorage.setItem('Fresanova_theme', 'light');
     }
   }, [darkMode]);
 

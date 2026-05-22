@@ -1,5 +1,5 @@
 // Controlador de clientes
-const { Customer, Order } = require('../models');
+const { Customer, Order, Message, Conversation } = require('../models');
 const ApiResponse = require('../utils/apiResponse');
 const AppError = require('../utils/appError');
 
@@ -75,6 +75,31 @@ class CustomerController {
 
       if (!customer) return next(AppError.notFound('Cliente no encontrado'));
       ApiResponse.success(res, customer, 'Cliente actualizado');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // GET /api/customers/:id/messages — Historial de conversación del cliente
+  async getCustomerMessages(req, res, next) {
+    try {
+      const customer = await Customer.findById(req.params.id);
+      if (!customer) return next(AppError.notFound('Cliente no encontrado'));
+
+      const messages = await Message.find({
+        whatsappNumber: customer.whatsappNumber
+      })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .select('direction body messageType createdAt');
+
+      ApiResponse.success(res, {
+        customer: {
+          fullName: customer.fullName,
+          whatsappNumber: customer.whatsappNumber
+        },
+        messages: messages.reverse()
+      });
     } catch (error) {
       next(error);
     }

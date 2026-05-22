@@ -22,6 +22,11 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    // Tamaño seleccionado (ej: Pequeño, Mediano, Grande)
+    selectedSize: {
+      name: String,
+      price: Number
+    },
     // Opción seleccionada (ej: chocolate negro)
     selectedOption: {
       name: String,
@@ -85,6 +90,7 @@ const orderSchema = new mongoose.Schema(
       fullName: { type: String, required: true },
       phone: { type: String, required: true },
       whatsappNumber: { type: String, required: true },
+      neighborhood: String,
       address: { type: String, required: true },
       addressReference: String
     },
@@ -157,7 +163,19 @@ const orderSchema = new mongoose.Schema(
     // Fecha estimada de entrega
     estimatedDelivery: Date,
     // Fecha real de entrega
-    deliveredAt: Date
+    deliveredAt: Date,
+    // URL del comprobante de transferencia
+    transferProofUrl: {
+      type: String,
+      trim: true
+    },
+    // Confirmación de transferencia por admin
+    transferConfirmed: {
+      type: Boolean,
+      default: false
+    },
+    transferConfirmedAt: Date,
+    transferConfirmedBy: String
   },
   {
     timestamps: true,

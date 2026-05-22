@@ -12,17 +12,20 @@ class WebhookController {
         To: to,
         MessageSid: messageSid,
         ButtonPayload: buttonPayload,
-        ListId: listId
+        ListId: listId,
+        NumMedia: numMedia,
+        MediaUrl0: mediaUrl0,
+        MediaContentType0: mediaContentType0
       } = req.body;
 
-      // Determinar el contenido del mensaje (texto o acción interactiva)
       const textContent = messageBody || '';
       const hasInteraction = buttonPayload || listId;
+      const hasMedia = parseInt(numMedia, 10) > 0;
+      const mediaUrl = hasMedia ? mediaUrl0 : null;
 
-      logger.info(`📩 Mensaje de ${from}: ${textContent}${buttonPayload ? ` [Botón: ${buttonPayload}]` : ''}${listId ? ` [Lista: ${listId}]` : ''}`);
+      logger.info(`📩 Mensaje de ${from}: ${textContent}${buttonPayload ? ` [Botón: ${buttonPayload}]` : ''}${listId ? ` [Lista: ${listId}]` : ''}${mediaUrl ? ` [Media: ${mediaContentType0}]` : ''}`);
 
-      // Si no hay texto ni interacción, ignorar
-      if (!textContent && !hasInteraction) {
+      if (!textContent && !hasInteraction && !hasMedia) {
         return res.status(200).send('<Response></Response>');
       }
 
@@ -30,14 +33,11 @@ class WebhookController {
         return res.status(200).send('<Response></Response>');
       }
 
-      // Procesar mensaje con soporte para botones y listas interactivas
-      await conversationService.processMessage(from, textContent, buttonPayload || null, listId || null);
+      await conversationService.processMessage(from, textContent, buttonPayload || null, listId || null, mediaUrl);
 
-      // Responder a Twilio con 200 vacío (los mensajes se envían por API desde el servicio)
       res.status(200).send('<Response></Response>');
     } catch (error) {
       logger.error('Error en webhook:', error);
-      // Siempre responder 200 a Twilio para evitar reintentos
       res.status(200).send('<Response></Response>');
     }
   }
@@ -46,7 +46,7 @@ class WebhookController {
   async verify(req, res) {
     res.status(200).json({
       success: true,
-      message: 'Webhook de Fresata activo 🍓',
+      message: 'Webhook de Fresanova activo 🍓',
       timestamp: new Date().toISOString()
     });
   }

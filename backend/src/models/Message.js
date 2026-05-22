@@ -29,6 +29,17 @@ const messageSchema = new mongoose.Schema(
       enum: ['text', 'interactive', 'image', 'template'],
       default: 'text'
     },
+    // URL de media adjunta
+    mediaUrl: {
+      type: String,
+      default: null
+    },
+    // Quién envió el mensaje
+    sentBy: {
+      type: String,
+      enum: ['customer', 'bot', 'admin'],
+      default: 'customer'
+    },
     // SID del mensaje de Twilio
     twilioMessageSid: String,
     // Estado del mensaje
@@ -36,6 +47,11 @@ const messageSchema = new mongoose.Schema(
       type: String,
       enum: ['sent', 'delivered', 'read', 'failed'],
       default: 'sent'
+    },
+    // Marcado como leído por admin
+    read: {
+      type: Boolean,
+      default: false
     }
   },
   {

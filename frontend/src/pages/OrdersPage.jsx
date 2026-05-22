@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useSocket } from '../context/SocketContext';
 import toast from 'react-hot-toast';
 import { formatCurrency, formatDateTime, statusLabels, statusColors } from '../utils/formatters';
 import { HiOutlineSearch, HiOutlineFilter, HiOutlineEye, HiOutlineRefresh } from 'react-icons/hi';
@@ -16,10 +17,26 @@ export default function OrdersPage() {
     search: '',
     status: ''
   });
+  const { subscribe } = useSocket();
 
   useEffect(() => {
     loadOrders();
   }, [filters.page, filters.status]);
+
+  // Escuchar eventos en tiempo real
+  useEffect(() => {
+    const unsubNew = subscribe('new_order', (order) => {
+      setOrders((prev) => [order, ...prev]);
+    });
+
+    const unsubStatus = subscribe('order_status_update', (updatedOrder) => {
+      setOrders((prev) =>
+        prev.map((o) => (o._id === updatedOrder._id ? updatedOrder : o))
+      );
+    });
+
+    return () => { unsubNew(); unsubStatus(); };
+  }, [subscribe]);
 
   const loadOrders = async () => {
     try {
@@ -107,7 +124,7 @@ export default function OrdersPage() {
       <div className="card overflow-hidden p-0">
         {loading ? (
           <div className="flex items-center justify-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-fresata-500 border-t-transparent"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-fresanova-500 border-t-transparent"></div>
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-12 text-gray-400">No se encontraron pedidos</div>
@@ -118,6 +135,7 @@ export default function OrdersPage() {
                 <tr>
                   <th className="table-header">Pedido</th>
                   <th className="table-header">Cliente</th>
+                  <th className="table-header">Productos</th>
                   <th className="table-header">Total</th>
                   <th className="table-header">Pago</th>
                   <th className="table-header">Estado</th>
@@ -128,15 +146,52 @@ export default function OrdersPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {orders.map((order) => (
                   <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="table-cell font-medium text-fresata-600">{order.orderNumber}</td>
+                    <td className="table-cell font-medium text-fresanova-600">{order.orderNumber}</td>
                     <td className="table-cell">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{order.customerInfo?.fullName}</p>
                         <p className="text-xs text-gray-500">{order.customerInfo?.phone}</p>
                       </div>
                     </td>
+                    <td className="table-cell">
+                      <div className="space-y-1 max-w-[250px]">
+                        {order.items?.map((item, idx) => (
+                          <div key={idx} className="text-xs">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {item.quantity > 1 ? `${item.quantity}x ` : ''}{item.productName}
+                              {item.selectedSize?.name ? ` (${item.selectedSize.name})` : ''}
+                            </span>
+                            {(item.toppings?.length > 0 || item.sauces?.length > 0) && (
+                              <p className="text-gray-400 truncate">
+                                {[
+                                  ...item.toppings?.map((t) => t.name) || [],
+                                  ...item.sauces?.map((s) => s.name) || []
+                                ].join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                        {(!order.items || order.items.length === 0) && (
+                          <span className="text-gray-400 text-xs">Sin productos</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="table-cell font-semibold">{formatCurrency(order.total)}</td>
-                    <td className="table-cell capitalize">{order.paymentMethod}</td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-1">
+                        <span className="capitalize">{order.paymentMethod}</span>
+                        {order.paymentMethod === 'transferencia' && !order.transferConfirmed && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                            Pendiente
+                          </span>
+                        )}
+                        {order.paymentMethod === 'transferencia' && order.transferConfirmed && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            Confirmada
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="table-cell">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
                         {statusLabels[order.status]}
@@ -147,7 +202,7 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/pedidos/${order._id}`}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-fresata-600 hover:bg-fresata-50 dark:hover:bg-fresata-900/20 transition-colors"
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-fresanova-600 hover:bg-fresanova-50 dark:hover:bg-fresanova-900/20 transition-colors"
                           title="Ver detalle"
                         >
                           <HiOutlineEye className="w-4 h-4" />

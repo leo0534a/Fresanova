@@ -2,10 +2,10 @@
 const rateLimit = require('express-rate-limit');
 const { config } = require('../config/env');
 
-// Rate limiter general para la API
+// Rate limiter general para la API — más permisivo en desarrollo
 const apiLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
+  max: config.isDevelopment ? 1000 : config.rateLimit.maxRequests,
   message: {
     success: false,
     message: 'Demasiadas solicitudes. Intenta de nuevo más tarde.',

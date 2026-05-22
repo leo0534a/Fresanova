@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import AdminLayout from './layouts/AdminLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -10,15 +11,16 @@ import ProductsPage from './pages/ProductsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import ToppingsPage from './pages/ToppingsPage';
 import CustomersPage from './pages/CustomersPage';
+import DeliveryZonesPage from './pages/DeliveryZonesPage';
+import LiveChatPage from './pages/LiveChatPage';
 
-// Ruta protegida que requiere autenticación
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-fresata-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-fresanova-500 border-t-transparent"></div>
       </div>
     );
   }
@@ -46,7 +48,9 @@ export default function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <AdminLayout />
+              <SocketProvider>
+                <AdminLayout />
+              </SocketProvider>
             </ProtectedRoute>
           }
         >
@@ -57,6 +61,8 @@ export default function App() {
           <Route path="categorias" element={<CategoriesPage />} />
           <Route path="toppings" element={<ToppingsPage />} />
           <Route path="clientes" element={<CustomersPage />} />
+          <Route path="domicilios" element={<DeliveryZonesPage />} />
+          <Route path="chat" element={<LiveChatPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

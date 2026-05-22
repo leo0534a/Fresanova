@@ -13,15 +13,19 @@ import {
   HiOutlineSun,
   HiOutlineMenu,
   HiOutlineX,
-  HiOutlineCake
+  HiOutlineCake,
+  HiOutlineTruck,
+  HiOutlineChatAlt2
 } from 'react-icons/hi';
 
 const menuItems = [
   { path: '/', label: 'Dashboard', icon: HiOutlineHome },
   { path: '/pedidos', label: 'Pedidos', icon: HiOutlineClipboardList },
+  { path: '/chat', label: 'Chat en Vivo', icon: HiOutlineChatAlt2 },
   { path: '/productos', label: 'Productos', icon: HiOutlineShoppingBag },
   { path: '/categorias', label: 'Categorias', icon: HiOutlineTag },
   { path: '/toppings', label: 'Toppings y Salsas', icon: HiOutlineCake },
+  { path: '/domicilios', label: 'Domicilios', icon: HiOutlineTruck },
   { path: '/clientes', label: 'Clientes', icon: HiOutlineUsers }
 ];
 
@@ -39,7 +43,7 @@ export default function AdminLayout() {
   const navLinkClass = ({ isActive }) =>
     `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
       isActive
-        ? 'bg-fresata-500 text-white shadow-md shadow-fresata-500/30'
+        ? 'bg-fresanova-500 text-white shadow-md shadow-fresanova-500/30'
         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
     }`;
 
@@ -49,7 +53,7 @@ export default function AdminLayout() {
       <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-200 dark:border-gray-700">
         <span className="text-3xl">🍓</span>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Fresata</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Fresanova</h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">Panel Admin</p>
         </div>
       </div>
@@ -74,7 +78,7 @@ export default function AdminLayout() {
       <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
         {/* Info del admin */}
         <div className="flex items-center gap-3 px-4 py-3 mb-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-          <div className="w-8 h-8 rounded-full bg-fresata-500 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-8 h-8 rounded-full bg-fresanova-500 flex items-center justify-center text-white font-bold text-sm">
             {admin?.name?.charAt(0) || 'A'}
           </div>
           <div className="flex-1 min-w-0">
@@ -145,7 +149,7 @@ export default function AdminLayout() {
             <HiOutlineMenu className="w-5 h-5" />
           </button>
           <span className="text-xl">🍓</span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Fresata</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Fresanova</h1>
         </header>
 
         {/* Contenido de la página */}

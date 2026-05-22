@@ -20,6 +20,10 @@ const customerSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, 'El nombre no puede exceder 200 caracteres']
     },
+    neighborhood: {
+      type: String,
+      trim: true
+    },
     address: {
       type: String,
       trim: true

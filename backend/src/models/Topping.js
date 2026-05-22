@@ -18,7 +18,7 @@ const toppingSchema = new mongoose.Schema(
     // Grupo de precio para mostrar organizadamente
     priceGroup: {
       type: String,
-      enum: ['3000', '4000', '5000', '7000'],
+      enum: ['2000', '3000', '3500', '4000', '5000', '7000'],
       required: true
     },
     image: {

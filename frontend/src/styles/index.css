@@ -10,7 +10,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-fresata-500 hover:bg-fresata-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-fresanova-500 hover:bg-fresanova-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
@@ -22,7 +22,7 @@
   }
 
   .input-field {
-    @apply w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-fresata-500 focus:border-transparent outline-none transition-all duration-200;
+    @apply w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-fresanova-500 focus:border-transparent outline-none transition-all duration-200;
   }
 
   .card {

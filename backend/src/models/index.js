@@ -3,6 +3,7 @@ const Admin = require('./Admin');
 const Category = require('./Category');
 const Conversation = require('./Conversation');
 const Customer = require('./Customer');
+const DeliveryZone = require('./DeliveryZone');
 const Message = require('./Message');
 const Order = require('./Order');
 const Product = require('./Product');
@@ -14,6 +15,7 @@ module.exports = {
   Category,
   Conversation,
   Customer,
+  DeliveryZone,
   Message,
   Order,
   Product,

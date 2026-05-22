@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useSocket } from '../context/SocketContext';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { statusLabels, statusColors } from '../utils/formatters';
 import {
@@ -25,10 +26,24 @@ export default function DashboardPage() {
   const [ordersByStatus, setOrdersByStatus] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { subscribe, connected } = useSocket();
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Actualizar en tiempo real cuando llega un nuevo pedido
+  useEffect(() => {
+    const unsubNew = subscribe('new_order', () => {
+      loadDashboardData();
+    });
+
+    const unsubStatus = subscribe('order_status_update', () => {
+      loadDashboardData();
+    });
+
+    return () => { unsubNew(); unsubStatus(); };
+  }, [subscribe]);
 
   const loadDashboardData = async () => {
     try {
@@ -53,7 +68,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-fresata-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-fresanova-500 border-t-transparent"></div>
       </div>
     );
   }
@@ -64,7 +79,7 @@ export default function DashboardPage() {
     { label: 'Pendientes', value: stats?.today?.pending || 0, icon: HiOutlineClock, color: 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30' },
     { label: 'Entregados Hoy', value: stats?.today?.delivered || 0, icon: HiOutlineCheckCircle, color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30' },
     { label: 'Cancelados Hoy', value: stats?.today?.cancelled || 0, icon: HiOutlineXCircle, color: 'text-red-600 bg-red-100 dark:bg-red-900/30' },
-    { label: 'Ingresos Totales', value: formatCurrency(stats?.total?.revenue || 0), icon: HiOutlineTrendingUp, color: 'text-fresata-600 bg-fresata-100 dark:bg-fresata-900/30' },
+    { label: 'Ingresos Totales', value: formatCurrency(stats?.total?.revenue || 0), icon: HiOutlineTrendingUp, color: 'text-fresanova-600 bg-fresanova-100 dark:bg-fresanova-900/30' },
     { label: 'Total Pedidos', value: stats?.total?.orders || 0, icon: HiOutlineShoppingBag, color: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30' },
     { label: 'Total Clientes', value: stats?.total?.customers || 0, icon: HiOutlineUsers, color: 'text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30' }
   ];
@@ -76,10 +91,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Título */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Resumen general de Fresata</p>
+      {/* Título con indicador de conexión */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Resumen general de Fresa Nova</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+          <span className="text-gray-500 dark:text-gray-400">
+            {connected ? 'En vivo' : 'Desconectado'}
+          </span>
+        </div>
       </div>
 
       {/* Cards de estadísticas */}
@@ -99,7 +122,6 @@ export default function DashboardPage() {
 
       {/* Gráficas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfica de ventas por día */}
         <div className="card lg:col-span-2">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ventas Últimos 7 Días</h3>
           <div className="h-72">
@@ -124,7 +146,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Gráfica de pedidos por estado */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Pedidos por Estado</h3>
           <div className="h-72">
@@ -156,9 +177,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Actividad reciente y productos top */}
+      {/* Actividad reciente */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Actividad reciente */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actividad Reciente</h3>
           <div className="space-y-3">
@@ -183,13 +203,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Productos más vendidos */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Productos Más Vendidos</h3>
           <div className="space-y-3">
             {stats?.topProducts?.length > 0 ? stats.topProducts.map((product, index) => (
               <div key={product._id} className="flex items-center gap-4 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-fresata-100 dark:bg-fresata-900/30 text-fresata-600 flex items-center justify-center font-bold text-sm">
+                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-fresanova-100 dark:bg-fresanova-900/30 text-fresanova-600 flex items-center justify-center font-bold text-sm">
                   {index + 1}
                 </span>
                 <div className="flex-1 min-w-0">

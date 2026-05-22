@@ -5,8 +5,10 @@ const aiService = require('./aiService');
 const orderService = require('./orderService');
 const whatsappService = require('./whatsappService');
 const contentTemplateService = require('./contentTemplateService');
+const socketService = require('./socketService');
 const { formatCurrency } = require('../helpers/formatCurrency');
 const { isBusinessOpen } = require('../helpers/dateHelper');
+const deliveryService = require('./deliveryService');
 const { config } = require('../config/env');
 const logger = require('../utils/logger');
 
@@ -36,20 +38,19 @@ class ConversationService {
   }
 
   // Punto de entrada: procesar mensaje entrante
-  async processMessage(whatsappNumber, incomingMessage, buttonPayload, listId) {
+  async processMessage(whatsappNumber, incomingMessage, buttonPayload, listId, mediaUrl) {
     try {
       const conversation = await this.getOrCreateConversation(whatsappNumber);
 
-      await this.saveMessage(conversation._id, whatsappNumber, 'inbound', incomingMessage);
-      conversation.messageHistory.push({ role: 'user', content: incomingMessage });
+      await this.saveMessage(conversation._id, whatsappNumber, 'inbound', incomingMessage || '[media]');
+      conversation.messageHistory.push({ role: 'user', content: incomingMessage || '[media]' });
       if (conversation.messageHistory.length > 20) {
         conversation.messageHistory = conversation.messageHistory.slice(-20);
       }
 
-      // El payload tiene prioridad (viene de botones/listas)
       const actionId = buttonPayload || listId || null;
 
-      await this.handleState(conversation, incomingMessage, actionId);
+      await this.handleState(conversation, incomingMessage, actionId, mediaUrl);
 
       await conversation.save();
     } catch (error) {
@@ -62,24 +63,27 @@ class ConversationService {
   }
 
   // Máquina de estados principal
-  async handleState(conversation, message, actionId) {
+  async handleState(conversation, message, actionId, mediaUrl) {
     const state = conversation.state;
-    const to = conversation.whatsappNumber;
 
-    // Cancelar en cualquier momento
-    if (['cancelar', 'salir', 'volver', 'inicio', 'reiniciar'].includes(message.toLowerCase().trim())) {
-      return await this.resetConversation(conversation);
+    // Cancelar en cualquier momento (excepto en live_chat y awaiting_transfer_confirmation)
+    if (!['live_chat', 'awaiting_transfer_confirmation'].includes(state)) {
+      if (['cancelar', 'salir', 'volver', 'inicio', 'reiniciar'].includes(message.toLowerCase().trim())) {
+        return await this.resetConversation(conversation);
+      }
     }
 
     switch (state) {
       case 'idle': return await this.handleIdle(conversation, message, actionId);
       case 'selecting_category': return await this.handleCategorySelection(conversation, message, actionId);
       case 'selecting_product': return await this.handleProductSelection(conversation, message, actionId);
+      case 'selecting_size': return await this.handleSizeSelection(conversation, message, actionId);
       case 'selecting_option': return await this.handleOptionSelection(conversation, message, actionId);
       case 'selecting_variant': return await this.handleVariantSelection(conversation, message, actionId);
       case 'asking_toppings': return await this.handleAskToppings(conversation, message, actionId);
       case 'typing_topping': return await this.handleTypingTopping(conversation, message);
       case 'another_topping': return await this.handleAnotherTopping(conversation, message, actionId);
+      case 'changing_topping': return await this.handleChangingTopping(conversation, message, actionId);
       case 'asking_sauce': return await this.handleAskSauce(conversation, message, actionId);
       case 'selecting_sauce': return await this.handleSauceSelection(conversation, message, actionId);
       case 'asking_comment': return await this.handleAskComment(conversation, message, actionId);
@@ -87,14 +91,20 @@ class ConversationService {
       case 'confirming_item': return await this.handleItemConfirmation(conversation, message, actionId);
       case 'adding_more': return await this.handleAddMore(conversation, message, actionId);
       case 'entering_name': return await this.handleName(conversation, message);
+      case 'entering_neighborhood': return await this.handleNeighborhood(conversation, message);
       case 'entering_address': return await this.handleAddress(conversation, message);
       case 'asking_reference': return await this.handleAskReference(conversation, message, actionId);
       case 'typing_reference': return await this.handleTypingReference(conversation, message);
       case 'entering_phone': return await this.handlePhone(conversation, message);
       case 'selecting_payment': return await this.handlePayment(conversation, message, actionId);
+      case 'awaiting_transfer_proof': return await this.handleTransferProof(conversation, message, actionId, mediaUrl);
+      case 'awaiting_transfer_confirmation': return await this.handleAwaitingTransferConfirmation(conversation, message, actionId);
       case 'confirming_order': return await this.handleOrderConfirmation(conversation, message, actionId);
+      case 'editing_order': return await this.handleEditOrder(conversation, message, actionId);
+      case 'editing_item': return await this.handleEditItem(conversation, message, actionId);
       case 'using_existing_data': return await this.handleExistingData(conversation, message, actionId);
       case 'tracking_order': return await this.handleTracking(conversation, message);
+      case 'live_chat': return await this.handleLiveChat(conversation, message);
       default: return await this.handleFreeChat(conversation, message);
     }
   }
@@ -117,7 +127,6 @@ class ConversationService {
       if (categoriesTpl) {
         await whatsappService.sendTemplate(to, categoriesTpl);
       } else {
-        // Fallback a menú principal con botones
         const mainMenuTpl = contentTemplateService.getTemplate('mainMenu');
         if (mainMenuTpl) await whatsappService.sendTemplate(to, mainMenuTpl);
         else await whatsappService.sendMessage(to, '¡Hola mi amor! 🍓 Escribe "menú" para ver nuestras delicias ✨');
@@ -139,7 +148,8 @@ class ConversationService {
     }
 
     if (intent === 'ask_delivery') {
-      await whatsappService.sendMessage(to, `¡Claro bebé! 🚗 El domicilio cuesta *${formatCurrency(config.business.deliveryPrice)}* en ${config.business.city} 🍓`);
+      const deliveryInfo = await deliveryService.getDeliveryInfoForWhatsApp();
+      await whatsappService.sendMessage(to, deliveryInfo);
       const mainTpl = contentTemplateService.getTemplate('mainMenu');
       if (mainTpl) await whatsappService.sendTemplate(to, mainTpl);
       return;
@@ -157,12 +167,11 @@ class ConversationService {
       return;
     }
 
-    // Chat libre con IA
     const catalogInfo = await catalogService.getCatalogForAI();
-    const aiResponse = await aiService.generateResponse(message, conversation.messageHistory, catalogInfo);
+    const deliveryInfo = await deliveryService.getNeighborhoodListForAI();
+    const aiResponse = await aiService.generateResponse(message, conversation.messageHistory, catalogInfo, deliveryInfo);
     await whatsappService.sendMessage(to, aiResponse);
 
-    // Mostrar menú principal después de la respuesta IA
     const mainTpl = contentTemplateService.getTemplate('mainMenu');
     if (mainTpl) await whatsappService.sendTemplate(to, mainTpl);
   }
@@ -170,8 +179,6 @@ class ConversationService {
   // ===== CATEGORÍA — Lista interactiva =====
   async handleCategorySelection(conversation, message, actionId) {
     const to = conversation.whatsappNumber;
-
-    // Detectar selección de categoría por actionId (viene de lista)
     let selectedCategory = null;
 
     if (actionId && actionId.startsWith('cat_')) {
@@ -179,7 +186,6 @@ class ConversationService {
       selectedCategory = await Category.findById(categoryId);
     }
 
-    // Fallback: buscar por nombre del mensaje
     if (!selectedCategory) {
       const categories = await catalogService.getActiveCategories();
       selectedCategory = categories.find((cat) => {
@@ -198,7 +204,6 @@ class ConversationService {
       return;
     }
 
-    // Mostrar productos de la categoría
     conversation.selectedCategory = selectedCategory._id;
     conversation.state = 'selecting_product';
 
@@ -206,7 +211,6 @@ class ConversationService {
     if (productsTpl) {
       await whatsappService.sendTemplate(to, productsTpl);
     } else {
-      // Fallback texto
       const products = await catalogService.getProductsByCategory(selectedCategory._id);
       await whatsappService.sendMessage(to, catalogService.formatProductsList(products, selectedCategory.name));
     }
@@ -223,7 +227,6 @@ class ConversationService {
     }
 
     if (!selectedProduct) {
-      // Buscar por nombre
       const products = await catalogService.getProductsByCategory(conversation.selectedCategory);
       selectedProduct = products.find((p) =>
         message.toLowerCase().includes(p.name.toLowerCase())
@@ -235,20 +238,40 @@ class ConversationService {
       return;
     }
 
-    // Inicializar item actual
+    // Inicializar item actual con el precio base más bajo
+    const lowestPrice = selectedProduct.sizes?.length > 0
+      ? selectedProduct.sizes[0].price
+      : selectedProduct.basePrice;
+
     conversation.currentItem = {
       product: selectedProduct._id,
       productName: selectedProduct.name,
-      basePrice: selectedProduct.basePrice,
+      basePrice: lowestPrice,
       toppings: [],
       sauces: [],
       quantity: 1,
-      itemTotal: selectedProduct.basePrice
+      itemTotal: lowestPrice
     };
     conversation.remainingIncludedToppings = selectedProduct.includedToppings || 0;
     conversation.remainingIncludedSauces = selectedProduct.includedSauces || 0;
 
-    // ¿Tiene opciones? (ej: tipo de chocolate)
+    // ¿Tiene tamaños?
+    if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
+      conversation.state = 'selecting_size';
+      const sizeTpl = contentTemplateService.getProductSizeTemplate(selectedProduct._id.toString());
+      if (sizeTpl) {
+        await whatsappService.sendTemplate(to, sizeTpl);
+      } else {
+        let msg = `📏 *${selectedProduct.name}*\n¿Qué tamaño prefieres, mi amor?\n\n`;
+        selectedProduct.sizes.forEach((size) => {
+          msg += `• ${size.name}: ${formatCurrency(size.price)}\n`;
+        });
+        await whatsappService.sendMessage(to, msg);
+      }
+      return;
+    }
+
+    // ¿Tiene opciones?
     if (selectedProduct.options && selectedProduct.options.length > 0) {
       conversation.state = 'selecting_option';
       const optionsTpl = contentTemplateService.getProductOptionTemplate(selectedProduct._id.toString());
@@ -262,7 +285,7 @@ class ConversationService {
       return;
     }
 
-    // ¿Tiene variantes? (ej: con soda)
+    // ¿Tiene variantes?
     if (selectedProduct.variants && selectedProduct.variants.length > 0) {
       conversation.state = 'selecting_variant';
       const variantsTpl = contentTemplateService.getProductVariantTemplate(selectedProduct._id.toString());
@@ -272,11 +295,57 @@ class ConversationService {
       return;
     }
 
-    // ¿Permite toppings?
     await this.goToToppingsOrNext(conversation, selectedProduct);
   }
 
-  // ===== OPCIONES DEL PRODUCTO (chocolate negro/blanco/combinado) =====
+  // ===== TAMAÑO DEL PRODUCTO =====
+  async handleSizeSelection(conversation, message, actionId) {
+    const to = conversation.whatsappNumber;
+    const product = await Product.findById(conversation.currentItem.product);
+
+    let selectedSize = null;
+
+    if (actionId && actionId.startsWith('size_')) {
+      const sizeName = actionId.replace('size_', '');
+      selectedSize = product.sizes.find((s) => s.name.toLowerCase() === sizeName);
+    }
+
+    if (!selectedSize) {
+      selectedSize = product.sizes.find((s) =>
+        message.toLowerCase().includes(s.name.toLowerCase())
+      );
+    }
+
+    if (!selectedSize) {
+      await whatsappService.sendMessage(to, 'Por favor selecciona un tamaño válido, corazón 📏🍓');
+      return;
+    }
+
+    conversation.currentItem.selectedSize = { name: selectedSize.name, price: selectedSize.price };
+    conversation.currentItem.basePrice = selectedSize.price;
+    conversation.currentItem.itemTotal = selectedSize.price;
+
+    await whatsappService.sendMessage(to, `📏 ¡Tamaño *${selectedSize.name}* (${formatCurrency(selectedSize.price)})! Perfecto, mi amor 😍`);
+
+    // Continuar con opciones, variantes o toppings
+    if (product.options && product.options.length > 0) {
+      conversation.state = 'selecting_option';
+      const optionsTpl = contentTemplateService.getProductOptionTemplate(product._id.toString());
+      if (optionsTpl) await whatsappService.sendTemplate(to, optionsTpl);
+      return;
+    }
+
+    if (product.variants && product.variants.length > 0) {
+      conversation.state = 'selecting_variant';
+      const variantsTpl = contentTemplateService.getProductVariantTemplate(product._id.toString());
+      if (variantsTpl) await whatsappService.sendTemplate(to, variantsTpl);
+      return;
+    }
+
+    await this.goToToppingsOrNext(conversation, product);
+  }
+
+  // ===== OPCIONES DEL PRODUCTO =====
   async handleOptionSelection(conversation, message, actionId) {
     const to = conversation.whatsappNumber;
     const product = await Product.findById(conversation.currentItem.product);
@@ -304,7 +373,7 @@ class ConversationService {
     await this.goToToppingsOrNext(conversation, product);
   }
 
-  // ===== VARIANTES DEL PRODUCTO (normal / con soda) =====
+  // ===== VARIANTES DEL PRODUCTO =====
   async handleVariantSelection(conversation, message, actionId) {
     const to = conversation.whatsappNumber;
     const product = await Product.findById(conversation.currentItem.product);
@@ -354,7 +423,7 @@ class ConversationService {
         list += `💝 _¡Tienes ${includedCount} topping(s) incluido(s) gratis!_\n\n`;
       }
 
-      list += '✏️ *Escribe el nombre del topping que quieras*';
+      list += '✏️ *Escribe el nombre del topping (o varios separados por coma)*';
       await whatsappService.sendMessage(to, list);
       return;
     }
@@ -368,35 +437,60 @@ class ConversationService {
     if (tpl) await whatsappService.sendTemplate(to, tpl);
   }
 
-  // ===== TOPPINGS: Usuario escribe nombre =====
+  // ===== TOPPINGS: Usuario escribe nombre (soporta múltiples separados por coma) =====
   async handleTypingTopping(conversation, message) {
     const to = conversation.whatsappNumber;
-    const toppingName = message.trim();
+    const inputText = message.trim();
 
-    // Buscar topping por nombre (fuzzy)
-    const regex = new RegExp(toppingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    const topping = await Topping.findOne({ name: regex, isActive: true });
+    // Separar por comas, "y", "+"
+    const toppingNames = inputText
+      .split(/[,\+]|\s+y\s+/i)
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
 
-    if (!topping) {
-      await whatsappService.sendMessage(to, `No encontré "${toppingName}" 😔 Revisa la lista y escribe el nombre exacto, corazón 🍓`);
+    if (toppingNames.length === 0) {
+      await whatsappService.sendMessage(to, 'Escribe el nombre del topping, corazón 🍓');
       return;
     }
 
-    let toppingPrice = topping.price;
-    if (conversation.remainingIncludedToppings > 0) {
-      toppingPrice = 0;
-      conversation.remainingIncludedToppings--;
+    let addedToppings = [];
+    let notFoundToppings = [];
+
+    for (const toppingName of toppingNames) {
+      const regex = new RegExp(toppingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const topping = await Topping.findOne({ name: regex, isActive: true });
+
+      if (!topping) {
+        notFoundToppings.push(toppingName);
+        continue;
+      }
+
+      let toppingPrice = topping.price;
+      if (conversation.remainingIncludedToppings > 0) {
+        toppingPrice = 0;
+        conversation.remainingIncludedToppings--;
+      }
+
+      conversation.currentItem.toppings.push({
+        topping: topping._id,
+        name: topping.name,
+        price: toppingPrice
+      });
+      conversation.currentItem.itemTotal += toppingPrice;
+
+      const priceText = toppingPrice > 0 ? ` (+${formatCurrency(toppingPrice)})` : ' (¡incluido!)';
+      addedToppings.push(`✅ *${topping.name}*${priceText}`);
     }
 
-    conversation.currentItem.toppings.push({
-      topping: topping._id,
-      name: topping.name,
-      price: toppingPrice
-    });
-    conversation.currentItem.itemTotal += toppingPrice;
+    if (addedToppings.length > 0) {
+      let confirmMsg = addedToppings.join('\n') + ' agregado(s) 🧁';
+      await whatsappService.sendMessage(to, confirmMsg);
+    }
 
-    const priceText = toppingPrice > 0 ? ` (+${formatCurrency(toppingPrice)})` : ' (¡incluido!)';
-    await whatsappService.sendMessage(to, `✅ *${topping.name}*${priceText} agregado 🧁`);
+    if (notFoundToppings.length > 0) {
+      await whatsappService.sendMessage(to, `No encontré: ${notFoundToppings.join(', ')} 😔 Revisa el nombre, corazón.`);
+      if (addedToppings.length === 0) return;
+    }
 
     // Preguntar si quiere otro
     conversation.state = 'another_topping';
@@ -405,15 +499,90 @@ class ConversationService {
     else await whatsappService.sendMessage(to, '¿Quieres agregar otro topping? (sí/no)');
   }
 
-  // ===== TOPPINGS: ¿Otro? =====
+  // ===== TOPPINGS: ¿Otro? (con opción de cambiar) =====
   async handleAnotherTopping(conversation, message, actionId) {
-    if (actionId === 'yes_another' || message.toLowerCase().includes('sí') || message.toLowerCase().includes('si')) {
+    if (actionId === 'yes_another' || message.toLowerCase().includes('sí') || message.toLowerCase().includes('si') || message.toLowerCase().includes('agregar')) {
       conversation.state = 'typing_topping';
-      await whatsappService.sendMessage(conversation.whatsappNumber, '✏️ Escribe el nombre del siguiente topping:');
+      await whatsappService.sendMessage(conversation.whatsappNumber, '✏️ Escribe el nombre del siguiente topping (o varios separados por coma):');
       return;
     }
 
-    await this.goToSauceOrNext(conversation);
+    if (actionId === 'change_topping' || message.toLowerCase().includes('cambiar')) {
+      return await this.showToppingChangeOptions(conversation);
+    }
+
+    if (actionId === 'no_more' || message.toLowerCase().includes('no')) {
+      await this.goToSauceOrNext(conversation);
+      return;
+    }
+
+    const tpl = contentTemplateService.getTemplate('anotherTopping');
+    if (tpl) await whatsappService.sendTemplate(conversation.whatsappNumber, tpl);
+  }
+
+  // Mostrar opciones para cambiar topping
+  async showToppingChangeOptions(conversation) {
+    const to = conversation.whatsappNumber;
+    const currentToppings = conversation.currentItem.toppings || [];
+
+    if (currentToppings.length === 0) {
+      await whatsappService.sendMessage(to, 'No tienes toppings agregados aún, mi amor 🍓');
+      conversation.state = 'typing_topping';
+      await whatsappService.sendMessage(to, '✏️ Escribe el nombre del topping que quieras:');
+      return;
+    }
+
+    let msg = '🔄 *Tus toppings actuales:*\n\n';
+    currentToppings.forEach((t, i) => {
+      const priceText = t.price > 0 ? ` (${formatCurrency(t.price)})` : ' (incluido)';
+      msg += `${i + 1}. ${t.name}${priceText}\n`;
+    });
+    msg += '\n✏️ Escribe el *número* del topping que quieres cambiar o "eliminar [número]" para quitarlo.';
+
+    conversation.state = 'changing_topping';
+    await whatsappService.sendMessage(to, msg);
+  }
+
+  // ===== CAMBIAR TOPPING =====
+  async handleChangingTopping(conversation, message, actionId) {
+    const to = conversation.whatsappNumber;
+    const currentToppings = conversation.currentItem.toppings || [];
+    const msgLower = message.toLowerCase().trim();
+
+    // Eliminar topping
+    if (msgLower.startsWith('eliminar') || msgLower.startsWith('quitar') || msgLower.startsWith('borrar')) {
+      const numStr = msgLower.replace(/^(eliminar|quitar|borrar)\s*/, '');
+      const index = parseInt(numStr, 10) - 1;
+
+      if (isNaN(index) || index < 0 || index >= currentToppings.length) {
+        await whatsappService.sendMessage(to, 'Número inválido, corazón. Intenta de nuevo 🍓');
+        return;
+      }
+
+      const removed = currentToppings[index];
+      conversation.currentItem.itemTotal -= removed.price;
+      conversation.currentItem.toppings.splice(index, 1);
+
+      await whatsappService.sendMessage(to, `🗑️ *${removed.name}* eliminado.`);
+      conversation.state = 'another_topping';
+      const tpl = contentTemplateService.getTemplate('anotherTopping');
+      if (tpl) await whatsappService.sendTemplate(to, tpl);
+      return;
+    }
+
+    // Cambiar topping por número
+    const index = parseInt(msgLower, 10) - 1;
+    if (!isNaN(index) && index >= 0 && index < currentToppings.length) {
+      const removed = currentToppings[index];
+      conversation.currentItem.itemTotal -= removed.price;
+      conversation.currentItem.toppings.splice(index, 1);
+
+      await whatsappService.sendMessage(to, `🔄 *${removed.name}* eliminado. Ahora escribe el topping de reemplazo:`);
+      conversation.state = 'typing_topping';
+      return;
+    }
+
+    await whatsappService.sendMessage(to, 'Escribe el número del topping a cambiar o "eliminar [número]", corazón 🍓');
   }
 
   // ===== FLUJO SALSAS: Preguntar si quiere =====
@@ -511,13 +680,11 @@ class ConversationService {
       conversation.currentItem = {};
 
       const cartTotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
-      const total = cartTotal + config.business.deliveryPrice;
 
       let msg = `🛒 ¡Agregado al carrito!\n\n`;
       msg += `Productos: ${conversation.cart.length}\n`;
       msg += `Subtotal: ${formatCurrency(cartTotal)}\n`;
-      msg += `Domicilio: ${formatCurrency(config.business.deliveryPrice)}\n`;
-      msg += `*Total: ${formatCurrency(total)}*`;
+      msg += `_El domicilio se calcula según tu barrio_`;
 
       await whatsappService.sendMessage(to, msg);
 
@@ -561,11 +728,15 @@ class ConversationService {
         return;
       }
 
-      // Ver si ya tenemos datos del cliente
       const customer = await Customer.findOne({ whatsappNumber: conversation.whatsappNumber });
-      if (customer && customer.fullName && customer.address && customer.phone) {
+      if (customer && customer.fullName && customer.address && customer.phone && customer.neighborhood) {
+        const deliveryResult = await deliveryService.findNeighborhoodPrice(customer.neighborhood);
+        const deliveryPrice = deliveryResult ? deliveryResult.price : config.business.deliveryPrice;
+
         conversation.tempCustomerData = {
           fullName: customer.fullName,
+          neighborhood: customer.neighborhood,
+          deliveryPrice,
           address: customer.address,
           addressReference: customer.addressReference,
           phone: customer.phone
@@ -573,6 +744,7 @@ class ConversationService {
 
         let msg = `📋 Tengo tus datos guardados:\n\n`;
         msg += `👤 ${customer.fullName}\n`;
+        msg += `🏘️ ${customer.neighborhood} (Domicilio: ${formatCurrency(deliveryPrice)})\n`;
         msg += `📍 ${customer.address}\n`;
         msg += `📱 ${customer.phone}`;
 
@@ -623,8 +795,42 @@ class ConversationService {
     }
     conversation.tempCustomerData = conversation.tempCustomerData || {};
     conversation.tempCustomerData.fullName = message.trim();
+    conversation.state = 'entering_neighborhood';
+    await whatsappService.sendMessage(to, `¡Lindo nombre, ${message.trim()}! 💖\n\n🏘️ Escribe el *nombre de tu barrio* para calcular el domicilio:`);
+  }
+
+  // ===== BARRIO =====
+  async handleNeighborhood(conversation, message) {
+    const to = conversation.whatsappNumber;
+    if (message.trim().length < 2) {
+      await whatsappService.sendMessage(to, 'Necesito el nombre de tu barrio, corazón 🏘️');
+      return;
+    }
+
+    if (message.trim().toLowerCase() === 'barrios') {
+      const deliveryInfo = await deliveryService.getDeliveryInfoForWhatsApp();
+      await whatsappService.sendMessage(to, deliveryInfo);
+      await whatsappService.sendMessage(to, '✏️ Ahora escribe el nombre de tu barrio:');
+      return;
+    }
+
+    const result = await deliveryService.findNeighborhoodPrice(message.trim());
+
+    if (!result) {
+      await whatsappService.sendMessage(
+        to,
+        `No encontré el barrio "${message.trim()}" en nuestra lista 😔\n\nPor favor revisa el nombre e intenta de nuevo, o escribe otro barrio cercano.\n\nSi quieres ver todos los barrios disponibles, escribe *"barrios"*`
+      );
+      return;
+    }
+
+    conversation.tempCustomerData.neighborhood = result.neighborhood;
+    conversation.tempCustomerData.deliveryPrice = result.price;
     conversation.state = 'entering_address';
-    await whatsappService.sendMessage(to, `¡Lindo nombre, ${message.trim()}! 💖\n\n📍 Escribe tu *dirección exacta* de entrega:`);
+    await whatsappService.sendMessage(
+      to,
+      `✅ *${result.neighborhood}* — Domicilio: *${formatCurrency(result.price)}*\n\n📍 Ahora escribe tu *dirección exacta* de entrega:`
+    );
   }
 
   // ===== DIRECCIÓN =====
@@ -689,42 +895,130 @@ class ConversationService {
 
     if (actionId === 'efectivo' || message.toLowerCase().includes('efectivo')) {
       conversation.tempCustomerData.paymentMethod = 'efectivo';
-    } else if (actionId === 'transferencia' || message.toLowerCase().includes('transferencia')) {
+      await this.showOrderSummary(conversation);
+      conversation.state = 'confirming_order';
+      const tpl = contentTemplateService.getTemplate('confirmOrder');
+      if (tpl) await whatsappService.sendTemplate(to, tpl);
+      return;
+    }
+
+    if (actionId === 'transferencia' || message.toLowerCase().includes('transferencia')) {
       conversation.tempCustomerData.paymentMethod = 'transferencia';
-    } else {
+
+      // Enviar imagen de BRE-B para transferencia
+      const transferImageUrl = config.business.transferImageUrl;
+      if (transferImageUrl) {
+        await whatsappService.sendMediaMessage(
+          to,
+          '💸 ¡Perfecto, mi amor! Realiza la transferencia a esta cuenta:',
+          transferImageUrl
+        );
+      } else {
+        await whatsappService.sendMessage(to, '💸 ¡Perfecto, mi amor! Realiza la transferencia y envíanos el comprobante 📸');
+      }
+
+      // Mostrar el total a transferir
+      const cartTotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
+      const deliveryPrice = conversation.tempCustomerData.deliveryPrice || config.business.deliveryPrice;
+      const total = cartTotal + deliveryPrice;
+      await whatsappService.sendMessage(to, `💰 *Total a transferir: ${formatCurrency(total)}*`);
+
+      conversation.state = 'awaiting_transfer_proof';
+      const tpl = contentTemplateService.getTemplate('transferButtons');
+      if (tpl) await whatsappService.sendTemplate(to, tpl);
+      return;
+    }
+
+    const tpl = contentTemplateService.getTemplate('paymentMethod');
+    if (tpl) await whatsappService.sendTemplate(to, tpl);
+  }
+
+  // ===== ESPERANDO COMPROBANTE DE TRANSFERENCIA =====
+  async handleTransferProof(conversation, message, actionId, mediaUrl) {
+    const to = conversation.whatsappNumber;
+
+    if (actionId === 'transfer_cancel' || message.toLowerCase().includes('cancelar')) {
+      conversation.tempCustomerData.paymentMethod = '';
+      conversation.state = 'selecting_payment';
+      await whatsappService.sendMessage(to, '❌ Transferencia cancelada. ¿Cómo prefieres pagar?');
       const tpl = contentTemplateService.getTemplate('paymentMethod');
       if (tpl) await whatsappService.sendTemplate(to, tpl);
       return;
     }
 
-    // Mostrar resumen final
-    const cartTotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
-    const total = cartTotal + config.business.deliveryPrice;
+    if (actionId === 'transfer_done') {
+      await whatsappService.sendMessage(to, '📸 ¡Genial! Envíame una *foto del comprobante* de la transferencia, corazón 💸');
+      return;
+    }
 
-    let summary = '🧾✨ *RESUMEN DE TU PEDIDO* ✨🧾\n━━━━━━━━━━━━━━━━━━━━━\n\n';
+    // Recibió imagen del comprobante
+    if (mediaUrl) {
+      conversation.tempCustomerData.transferProofUrl = mediaUrl;
+      conversation.state = 'awaiting_transfer_confirmation';
 
-    conversation.cart.forEach((item, i) => {
-      summary += `${i + 1}. *${item.productName}* — ${formatCurrency(item.itemTotal)}\n`;
-      if (item.toppings?.length > 0) summary += `   🧁 ${item.toppings.map((t) => t.name).join(', ')}\n`;
-      if (item.sauces?.length > 0) summary += `   🍯 ${item.sauces.map((s) => s.name).join(', ')}\n`;
-      if (item.comment) summary += `   💬 ${item.comment}\n`;
-    });
+      await whatsappService.sendMessage(
+        to,
+        '✅ ¡Comprobante recibido, mi amor! 💖\n\n' +
+        '🔍 Estamos verificando tu transferencia... Nuestro equipo la revisará en un momentico.\n\n' +
+        '⏳ Te avisaremos apenas esté confirmada. ¡Gracias por tu paciencia, corazón! 🍓✨'
+      );
 
-    summary += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    summary += `👤 ${conversation.tempCustomerData.fullName}\n`;
-    summary += `📍 ${conversation.tempCustomerData.address}\n`;
-    if (conversation.tempCustomerData.addressReference) summary += `🏠 ${conversation.tempCustomerData.addressReference}\n`;
-    summary += `📱 ${conversation.tempCustomerData.phone}\n`;
-    summary += `💳 ${conversation.tempCustomerData.paymentMethod === 'efectivo' ? 'Efectivo' : 'Transferencia'}\n\n`;
-    summary += `📦 Subtotal: ${formatCurrency(cartTotal)}\n`;
-    summary += `🚗 Domicilio: ${formatCurrency(config.business.deliveryPrice)}\n`;
-    summary += `💵 *TOTAL: ${formatCurrency(total)}*`;
+      // Emitir evento al panel admin
+      const cartTotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
+      const deliveryPrice = conversation.tempCustomerData.deliveryPrice || config.business.deliveryPrice;
+      socketService.emitTransferPending({
+        whatsappNumber: to,
+        customerName: conversation.tempCustomerData.fullName,
+        total: cartTotal + deliveryPrice,
+        transferProofUrl: mediaUrl,
+        timestamp: new Date()
+      });
+      return;
+    }
 
-    await whatsappService.sendMessage(to, summary);
-
-    conversation.state = 'confirming_order';
-    const tpl = contentTemplateService.getTemplate('confirmOrder');
+    await whatsappService.sendMessage(to, '📸 Necesito que me envíes una *foto del comprobante*, mi amor. Si ya transferiste, dale al botón "Ya transferí" 💸');
+    const tpl = contentTemplateService.getTemplate('transferButtons');
     if (tpl) await whatsappService.sendTemplate(to, tpl);
+  }
+
+  // ===== ESPERANDO CONFIRMACIÓN DEL ADMIN =====
+  async handleAwaitingTransferConfirmation(conversation, message, actionId) {
+    const to = conversation.whatsappNumber;
+    await whatsappService.sendMessage(
+      to,
+      '⏳ Tu transferencia aún está siendo verificada, corazón. Te avisaremos apenas esté confirmada 🍓💖'
+    );
+  }
+
+  // Método llamado desde el API cuando el admin confirma la transferencia
+  async confirmTransfer(whatsappNumber) {
+    const conversation = await Conversation.findOne({ whatsappNumber, isActive: true });
+    if (!conversation || conversation.state !== 'awaiting_transfer_confirmation') {
+      return false;
+    }
+
+    const to = conversation.whatsappNumber;
+
+    await whatsappService.sendMessage(
+      to,
+      '🎉 ¡Tu transferencia ha sido *confirmada*, mi amor! 💖✨\n\n¡Gracias por confiar en Fresa Nova! 🍓'
+    );
+
+    // Mostrar resumen y pedir confirmación (sin botón de cancelar)
+    await this.showOrderSummary(conversation);
+    conversation.state = 'confirming_order';
+    // Usar template sin cancelar para post-transferencia
+    conversation.tempCustomerData.transferConfirmed = true;
+    await conversation.save();
+
+    const tpl = contentTemplateService.getTemplate('confirmOrderTransfer');
+    if (tpl) await whatsappService.sendTemplate(to, tpl);
+    else {
+      const tpl2 = contentTemplateService.getTemplate('confirmOrder');
+      if (tpl2) await whatsappService.sendTemplate(to, tpl2);
+    }
+
+    return true;
   }
 
   // ===== CONFIRMAR PEDIDO FINAL =====
@@ -738,10 +1032,23 @@ class ConversationService {
       conversation.cart = [];
       conversation.currentItem = {};
       conversation.tempCustomerData = {};
-      conversation.state = 'idle';
+      conversation.state = 'live_chat';
 
       await whatsappService.sendMessage(to, receipt);
+      await whatsappService.sendMessage(
+        to,
+        '💬 Ahora puedes hablar directamente con un asesor si tienes alguna duda o pregunta.\n\n' +
+        '📦 Te seguiremos enviando las actualizaciones de tu pedido.\n\n' +
+        'Escribe *"menú"* cuando quieras volver al menú principal 🍓✨'
+      );
+
+      // Emitir evento de nuevo pedido
+      socketService.emitNewOrder(order);
       return;
+    }
+
+    if (actionId === 'edit_order' || message.toLowerCase().includes('editar')) {
+      return await this.showEditOptions(conversation);
     }
 
     if (actionId === 'cancel_order' || message.toLowerCase().includes('cancelar') || message.toLowerCase().includes('no')) {
@@ -749,8 +1056,111 @@ class ConversationService {
       return;
     }
 
-    const tpl = contentTemplateService.getTemplate('confirmOrder');
+    const isTransferConfirmed = conversation.tempCustomerData?.transferConfirmed;
+    const tpl = contentTemplateService.getTemplate(isTransferConfirmed ? 'confirmOrderTransfer' : 'confirmOrder');
     if (tpl) await whatsappService.sendTemplate(to, tpl);
+  }
+
+  // ===== EDITAR PEDIDO =====
+  async showEditOptions(conversation) {
+    const to = conversation.whatsappNumber;
+    conversation.state = 'editing_order';
+    const tpl = contentTemplateService.getTemplate('editOrderOptions');
+    if (tpl) {
+      await whatsappService.sendTemplate(to, tpl);
+    } else {
+      await whatsappService.sendMessage(to, '✏️ ¿Qué deseas editar?\n1. 🛒 Productos\n2. 📍 Datos de entrega\n3. 💰 Método de pago');
+    }
+  }
+
+  async handleEditOrder(conversation, message, actionId) {
+    const to = conversation.whatsappNumber;
+
+    if (actionId === 'edit_products' || message.includes('1') || message.toLowerCase().includes('producto')) {
+      return await this.showEditItemOptions(conversation);
+    }
+
+    if (actionId === 'edit_delivery' || message.includes('2') || message.toLowerCase().includes('datos') || message.toLowerCase().includes('entrega') || message.toLowerCase().includes('direc')) {
+      conversation.tempCustomerData = conversation.tempCustomerData || {};
+      // Mantener el método de pago y transferencia confirmada si existe
+      const paymentMethod = conversation.tempCustomerData.paymentMethod;
+      const transferConfirmed = conversation.tempCustomerData.transferConfirmed;
+      const transferProofUrl = conversation.tempCustomerData.transferProofUrl;
+      conversation.tempCustomerData = { paymentMethod, transferConfirmed, transferProofUrl };
+      conversation.state = 'entering_name';
+      await whatsappService.sendMessage(to, '📝 Vamos a actualizar tus datos de entrega.\n\n👤 Escribe tu *nombre completo*:');
+      return;
+    }
+
+    if (actionId === 'edit_payment' || message.includes('3') || message.toLowerCase().includes('pago')) {
+      conversation.state = 'selecting_payment';
+      const tpl = contentTemplateService.getTemplate('paymentMethod');
+      if (tpl) await whatsappService.sendTemplate(to, tpl);
+      return;
+    }
+
+    const tpl = contentTemplateService.getTemplate('editOrderOptions');
+    if (tpl) await whatsappService.sendTemplate(to, tpl);
+  }
+
+  async showEditItemOptions(conversation) {
+    const to = conversation.whatsappNumber;
+
+    if (conversation.cart.length === 0) {
+      await whatsappService.sendMessage(to, 'Tu carrito está vacío, mi amor 🍓');
+      await this.showEditOptions(conversation);
+      return;
+    }
+
+    let msg = '🛒 *Tus productos:*\n\n';
+    conversation.cart.forEach((item, i) => {
+      msg += `${i + 1}. *${item.productName}*`;
+      if (item.selectedSize?.name) msg += ` (${item.selectedSize.name})`;
+      msg += ` — ${formatCurrency(item.itemTotal)}\n`;
+    });
+    msg += '\n✏️ Escribe el *número* del producto a eliminar, o "agregar" para añadir otro, o "listo" para volver al resumen.';
+
+    conversation.state = 'editing_item';
+    await whatsappService.sendMessage(to, msg);
+  }
+
+  async handleEditItem(conversation, message, actionId) {
+    const to = conversation.whatsappNumber;
+    const msgLower = message.toLowerCase().trim();
+
+    if (msgLower === 'listo' || msgLower === 'volver' || msgLower === 'resumen') {
+      if (conversation.cart.length === 0) {
+        await whatsappService.sendMessage(to, 'Tu carrito está vacío. Agrega al menos un producto 🍓');
+        conversation.state = 'selecting_category';
+        const catTpl = contentTemplateService.getTemplate('categories');
+        if (catTpl) await whatsappService.sendTemplate(to, catTpl);
+        return;
+      }
+      await this.showOrderSummary(conversation);
+      conversation.state = 'confirming_order';
+      const isTransferConfirmed = conversation.tempCustomerData?.transferConfirmed;
+      const tpl = contentTemplateService.getTemplate(isTransferConfirmed ? 'confirmOrderTransfer' : 'confirmOrder');
+      if (tpl) await whatsappService.sendTemplate(to, tpl);
+      return;
+    }
+
+    if (msgLower === 'agregar' || msgLower.includes('añadir') || msgLower.includes('agregar')) {
+      conversation.state = 'selecting_category';
+      await whatsappService.sendMessage(to, '¡Perfecto, agrega más! 🍓✨');
+      const catTpl = contentTemplateService.getTemplate('categories');
+      if (catTpl) await whatsappService.sendTemplate(to, catTpl);
+      return;
+    }
+
+    const index = parseInt(msgLower, 10) - 1;
+    if (!isNaN(index) && index >= 0 && index < conversation.cart.length) {
+      const removed = conversation.cart[index];
+      conversation.cart.splice(index, 1);
+      await whatsappService.sendMessage(to, `🗑️ *${removed.productName}* eliminado del carrito.`);
+      return await this.showEditItemOptions(conversation);
+    }
+
+    await whatsappService.sendMessage(to, 'Escribe el número del producto a eliminar, "agregar" o "listo", corazón 🍓');
   }
 
   // ===== RASTREAR PEDIDO =====
@@ -781,24 +1191,51 @@ class ConversationService {
     await whatsappService.sendMessage(to, orderService.formatOrderTracking(order));
   }
 
+  // ===== CHAT EN VIVO CON ASESOR =====
+  async handleLiveChat(conversation, message) {
+    const to = conversation.whatsappNumber;
+
+    // Permitir volver al menú
+    if (['menú', 'menu', 'inicio', 'salir'].includes(message.toLowerCase().trim())) {
+      conversation.state = 'idle';
+      await whatsappService.sendMessage(to, '¡Gracias por escribirnos, corazón! 💖🍓');
+      const mainTpl = contentTemplateService.getTemplate('mainMenu');
+      if (mainTpl) await whatsappService.sendTemplate(to, mainTpl);
+      return;
+    }
+
+    // Emitir mensaje al panel admin via Socket.IO
+    socketService.emitLiveChatMessage({
+      whatsappNumber: to,
+      message,
+      direction: 'inbound',
+      timestamp: new Date()
+    });
+
+    // No responder automáticamente — el asesor real responderá desde el panel
+  }
+
   // ===== CHAT LIBRE CON IA =====
   async handleFreeChat(conversation, message) {
     const to = conversation.whatsappNumber;
     const catalogInfo = await catalogService.getCatalogForAI();
-    const aiResponse = await aiService.generateResponse(message, conversation.messageHistory, catalogInfo);
+    const deliveryInfo = await deliveryService.getNeighborhoodListForAI();
+    const aiResponse = await aiService.generateResponse(message, conversation.messageHistory, catalogInfo, deliveryInfo);
     await whatsappService.sendMessage(to, aiResponse);
     conversation.state = 'idle';
   }
 
   // ===== HELPERS DE NAVEGACIÓN =====
 
-  // Ir a toppings o al siguiente paso
   async goToToppingsOrNext(conversation, product) {
     const to = conversation.whatsappNumber;
 
     if (product.allowsToppings) {
       conversation.state = 'asking_toppings';
-      await whatsappService.sendMessage(to, `😍 *${product.name}* — ${formatCurrency(product.basePrice)} ¡Excelente elección!`);
+      const priceDisplay = conversation.currentItem.selectedSize
+        ? formatCurrency(conversation.currentItem.selectedSize.price)
+        : formatCurrency(product.basePrice);
+      await whatsappService.sendMessage(to, `😍 *${product.name}* — ${priceDisplay} ¡Excelente elección!`);
       const tpl = contentTemplateService.getTemplate('wantToppings');
       if (tpl) await whatsappService.sendTemplate(to, tpl);
       else await whatsappService.sendMessage(to, '¿Quieres agregar toppings? (sí/no)');
@@ -808,7 +1245,6 @@ class ConversationService {
     await this.goToSauceOrNext(conversation);
   }
 
-  // Ir a salsas o al siguiente paso
   async goToSauceOrNext(conversation) {
     const to = conversation.whatsappNumber;
     const product = await Product.findById(conversation.currentItem.product);
@@ -817,14 +1253,13 @@ class ConversationService {
       conversation.state = 'asking_sauce';
       const tpl = contentTemplateService.getTemplate('wantSauce');
       if (tpl) await whatsappService.sendTemplate(to, tpl);
-      else await whatsappService.sendMessage(to, '¿Quieres agregar salsa? (sí/no)');
+      else await whatsappService.sendMessage(to, '¿Quieres elegir una salsa? (sí/no)');
       return;
     }
 
     await this.goToComment(conversation);
   }
 
-  // Ir a comentario
   async goToComment(conversation) {
     conversation.state = 'asking_comment';
     const tpl = contentTemplateService.getTemplate('wantComment');
@@ -838,7 +1273,9 @@ class ConversationService {
     const item = conversation.currentItem;
 
     let summary = `✨ *Tu producto:*\n\n`;
-    summary += `🍓 ${item.productName} — ${formatCurrency(item.basePrice)}\n`;
+    summary += `🍓 ${item.productName}`;
+    if (item.selectedSize?.name) summary += ` (${item.selectedSize.name})`;
+    summary += ` — ${formatCurrency(item.basePrice)}\n`;
     if (item.selectedOption?.name) summary += `📌 Tipo: ${item.selectedOption.name}\n`;
     if (item.selectedVariant?.name) summary += `📌 ${item.selectedVariant.name} (+${formatCurrency(item.selectedVariant.extraPrice)})\n`;
     if (item.toppings?.length > 0) summary += `🧁 Toppings: ${item.toppings.map((t) => `${t.name}${t.price > 0 ? ` (+${formatCurrency(t.price)})` : ''}`).join(', ')}\n`;
@@ -851,6 +1288,38 @@ class ConversationService {
     conversation.state = 'confirming_item';
     const tpl = contentTemplateService.getTemplate('confirmItem');
     if (tpl) await whatsappService.sendTemplate(to, tpl);
+  }
+
+  // Mostrar resumen del pedido completo
+  async showOrderSummary(conversation) {
+    const to = conversation.whatsappNumber;
+    const cartTotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
+    const deliveryPrice = conversation.tempCustomerData.deliveryPrice || config.business.deliveryPrice;
+    const total = cartTotal + deliveryPrice;
+
+    let summary = '🧾✨ *RESUMEN DE TU PEDIDO* ✨🧾\n━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    conversation.cart.forEach((item, i) => {
+      summary += `${i + 1}. *${item.productName}*`;
+      if (item.selectedSize?.name) summary += ` (${item.selectedSize.name})`;
+      summary += ` — ${formatCurrency(item.itemTotal)}\n`;
+      if (item.toppings?.length > 0) summary += `   🧁 ${item.toppings.map((t) => t.name).join(', ')}\n`;
+      if (item.sauces?.length > 0) summary += `   🍯 ${item.sauces.map((s) => s.name).join(', ')}\n`;
+      if (item.comment) summary += `   💬 ${item.comment}\n`;
+    });
+
+    summary += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
+    summary += `👤 ${conversation.tempCustomerData.fullName}\n`;
+    if (conversation.tempCustomerData.neighborhood) summary += `🏘️ ${conversation.tempCustomerData.neighborhood}\n`;
+    summary += `📍 ${conversation.tempCustomerData.address}\n`;
+    if (conversation.tempCustomerData.addressReference) summary += `🏠 ${conversation.tempCustomerData.addressReference}\n`;
+    summary += `📱 ${conversation.tempCustomerData.phone}\n`;
+    summary += `💳 ${conversation.tempCustomerData.paymentMethod === 'efectivo' ? 'Efectivo' : 'Transferencia'}\n\n`;
+    summary += `📦 Subtotal: ${formatCurrency(cartTotal)}\n`;
+    summary += `🚗 Domicilio (${conversation.tempCustomerData.neighborhood || config.business.city}): ${formatCurrency(deliveryPrice)}\n`;
+    summary += `💵 *TOTAL: ${formatCurrency(total)}*`;
+
+    await whatsappService.sendMessage(to, summary);
   }
 
   // Resetear conversación

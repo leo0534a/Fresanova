@@ -26,12 +26,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-fresata-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-fresanova-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <span className="text-6xl block mb-4">🍓</span>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Fresata</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Fresanova</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Panel Administrativo</p>
         </div>
 
@@ -49,7 +49,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input-field"
-                placeholder="admin@fresata.com"
+                placeholder="admin@Fresanova.com"
                 required
                 autoFocus
               />
@@ -87,7 +87,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-sm text-gray-400 mt-6">
-          Fresata &copy; {new Date().getFullYear()} — Cartagena, Colombia
+          Fresanova &copy; {new Date().getFullYear()} — Cartagena, Colombia
         </p>
       </div>
     </div>

@@ -17,9 +17,9 @@ class AIService {
   }
 
   // Generar respuesta de IA basada en contexto de conversación
-  async generateResponse(userMessage, conversationHistory = [], catalogInfo = '') {
+  async generateResponse(userMessage, conversationHistory = [], catalogInfo = '', deliveryInfo = '') {
     try {
-      const systemPrompt = getSystemPrompt(catalogInfo);
+      const systemPrompt = getSystemPrompt(catalogInfo, deliveryInfo);
 
       // Construir historial de mensajes para la IA
       const messages = [

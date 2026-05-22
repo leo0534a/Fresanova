@@ -83,10 +83,32 @@ const config = {
     apiSecret: process.env.CLOUDINARY_API_SECRET
   },
 
-  // CORS
-  allowedOrigins: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
-    : ['http://localhost:5173'],
+  // CORS - se construyen los orígenes permitidos combinando ALLOWED_ORIGINS, FRONTEND_URL y variantes de localhost en desarrollo
+  allowedOrigins: (() => {
+    const origins = new Set();
+
+    if (process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS.split(',').forEach((o) => origins.add(o.trim()));
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (frontendUrl) {
+      origins.add(frontendUrl);
+    }
+
+    if (process.env.RENDER_EXTERNAL_URL) {
+      origins.add(process.env.RENDER_EXTERNAL_URL);
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      origins.add('http://localhost:5173');
+      origins.add('http://localhost:5174');
+      origins.add('http://127.0.0.1:5173');
+      origins.add('http://127.0.0.1:5174');
+    }
+
+    return [...origins];
+  })(),
 
   // Rate Limit
   rateLimit: {
@@ -95,7 +117,7 @@ const config = {
   },
 
   // Session
-  sessionSecret: process.env.SESSION_SECRET || 'fresata_session_secret',
+  sessionSecret: process.env.SESSION_SECRET || 'fresanova_session_secret',
 
   // Logs
   logLevel: process.env.LOG_LEVEL || 'debug',
@@ -105,11 +127,12 @@ const config = {
 
   // Negocio
   business: {
-    name: process.env.BUSINESS_NAME || 'Fresata',
+    name: process.env.BUSINESS_NAME || 'Fresanova',
     city: process.env.BUSINESS_CITY || 'Cartagena',
     deliveryPrice: parseInt(process.env.DELIVERY_PRICE, 10) || 10000,
     openHour: process.env.BUSINESS_OPEN_HOUR || '08:00',
-    closeHour: process.env.BUSINESS_CLOSE_HOUR || '20:00'
+    closeHour: process.env.BUSINESS_CLOSE_HOUR || '20:00',
+    transferImageUrl: process.env.TRANSFER_IMAGE_URL || ''
   }
 };
 

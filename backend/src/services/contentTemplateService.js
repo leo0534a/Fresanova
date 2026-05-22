@@ -16,7 +16,7 @@ class ContentTemplateService {
   async createQuickReply(friendlyName, body, actions) {
     try {
       const content = await this.client.content.v1.contents.create({
-        friendlyName: `fresata_${friendlyName}_${Date.now()}`,
+        friendlyName: `Fresanova_${friendlyName}_${Date.now()}`,
         language: 'es',
         variables: {},
         types: {
@@ -38,7 +38,7 @@ class ContentTemplateService {
   async createListPicker(friendlyName, body, buttonText, items) {
     try {
       const content = await this.client.content.v1.contents.create({
-        friendlyName: `fresata_${friendlyName}_${Date.now()}`,
+        friendlyName: `Fresanova_${friendlyName}_${Date.now()}`,
         language: 'es',
         variables: {},
         types: {
@@ -71,7 +71,7 @@ class ContentTemplateService {
       // Menú principal (3 botones)
       this.templates.mainMenu = await this.createQuickReply(
         'main_menu',
-        '¡Hola mi amor! 🍓✨ Bienvenido a Fresata, ¿qué deseas hacer?',
+        '¡Hola mi amor! 🍓✨ Bienvenido a Fresa Nova, ¿qué deseas hacer?',
         [
           { title: '🍓 Ver Menú', id: 'menu' },
           { title: '📦 Mi Pedido', id: 'track' },
@@ -109,13 +109,24 @@ class ContentTemplateService {
         ]
       );
 
-      // Confirmación final del pedido
+      // Confirmación final del pedido (con editar)
       this.templates.confirmOrder = await this.createQuickReply(
         'confirm_order',
         '¿Confirmamos tu pedido, corazón? 🍓',
         [
           { title: '✅ Confirmar', id: 'confirm_order' },
+          { title: '✏️ Editar', id: 'edit_order' },
           { title: '❌ Cancelar', id: 'cancel_order' }
+        ]
+      );
+
+      // Confirmación post-transferencia (sin cancelar)
+      this.templates.confirmOrderTransfer = await this.createQuickReply(
+        'confirm_order_transfer',
+        '✅ Tu transferencia fue confirmada. ¿Confirmamos tu pedido? 🍓',
+        [
+          { title: '✅ Confirmar', id: 'confirm_order' },
+          { title: '✏️ Editar', id: 'edit_order' }
         ]
       );
 
@@ -129,22 +140,23 @@ class ContentTemplateService {
         ]
       );
 
-      // ¿Otro topping?
+      // ¿Otro topping? (con opción de cambiar anterior)
       this.templates.anotherTopping = await this.createQuickReply(
         'another_topping',
         '¿Quieres agregar otro topping? 🧁',
         [
-          { title: '✅ Sí, otro', id: 'yes_another' },
-          { title: '❌ No, continuar', id: 'no_more' }
+          { title: '✅ Agregar', id: 'yes_another' },
+          { title: '🔄 Cambiar', id: 'change_topping' },
+          { title: '❌ No más', id: 'no_more' }
         ]
       );
 
       // ¿Quieres salsa?
       this.templates.wantSauce = await this.createQuickReply(
         'want_sauce',
-        '🍯 ¿Quieres agregar una salsa?',
+        '🍯 ¿Quieres elegir una salsa? (incluida gratis)',
         [
-          { title: '✅ Sí, agregar', id: 'yes_sauce' },
+          { title: '✅ Sí, elegir', id: 'yes_sauce' },
           { title: '❌ No, gracias', id: 'no_sauce' }
         ]
       );
@@ -176,6 +188,27 @@ class ContentTemplateService {
         [
           { title: '✅ Sí, usar estos', id: 'use_existing' },
           { title: '✏️ Actualizar', id: 'update_data' }
+        ]
+      );
+
+      // Botones de transferencia
+      this.templates.transferButtons = await this.createQuickReply(
+        'transfer_buttons',
+        '¿Ya realizaste la transferencia, mi amor? 💸',
+        [
+          { title: '✅ Ya transferí', id: 'transfer_done' },
+          { title: '❌ Cancelar', id: 'transfer_cancel' }
+        ]
+      );
+
+      // Opciones de edición del pedido
+      this.templates.editOrderOptions = await this.createQuickReply(
+        'edit_order_options',
+        '✏️ ¿Qué deseas editar, corazón?',
+        [
+          { title: '🛒 Productos', id: 'edit_products' },
+          { title: '📍 Datos entrega', id: 'edit_delivery' },
+          { title: '💰 Método pago', id: 'edit_payment' }
         ]
       );
 
@@ -216,26 +249,34 @@ class ContentTemplateService {
           `products_${category.slug || category._id}`,
           `${category.emoji} *${category.name.toUpperCase()}*\n¿Qué se te antoja, corazón?`,
           'Ver productos',
-          products.map((prod) => ({
-            id: `prod_${prod._id}`,
-            title: prod.name,
-            description: `${formatCurrency(prod.basePrice)}${prod.includesNote ? ' — ' + prod.includesNote : ''}`
-          }))
+          products.map((prod) => {
+            let priceText = '';
+            if (prod.sizes && prod.sizes.length > 0) {
+              priceText = `Desde ${formatCurrency(prod.sizes[0].price)}`;
+            } else {
+              priceText = formatCurrency(prod.basePrice);
+            }
+            return {
+              id: `prod_${prod._id}`,
+              title: prod.name,
+              description: `${priceText}${prod.includesNote ? ' — ' + prod.includesNote : ''}`
+            };
+          })
         );
       }
     }
 
-    // Template de salsas (máximo 10, tenemos 4)
+    // Template de salsas
     const sauces = await Sauce.find({ isActive: true }).sort('displayOrder');
     if (sauces.length > 0 && sauces.length <= 10) {
       this.templates.sauces = await this.createListPicker(
         'sauces',
-        '🍯 ¿Qué salsa quieres, mi amor?',
+        '🍯 ¿Qué salsa quieres, mi amor? (¡gratis!)',
         'Ver salsas',
         sauces.map((sauce) => ({
           id: `sauce_${sauce._id}`,
           title: sauce.name,
-          description: formatCurrency(sauce.price)
+          description: sauce.price > 0 ? formatCurrency(sauce.price) : '¡Incluida!'
         }))
       );
     }
@@ -275,26 +316,42 @@ class ContentTemplateService {
         );
       }
     }
+
+    // Templates de tamaño por producto
+    const productsWithSizes = await Product.find({ isActive: true, 'sizes.0': { $exists: true } });
+    this.templates.productSizes = {};
+    for (const product of productsWithSizes) {
+      if (product.sizes.length <= 3) {
+        this.templates.productSizes[product._id.toString()] = await this.createQuickReply(
+          `sizes_${product._id}`,
+          `📏 *${product.name}*\n¿Qué tamaño quieres, mi amor?`,
+          product.sizes.map((size) => ({
+            title: `${size.name} (${formatCurrency(size.price)})`,
+            id: `size_${size.name.toLowerCase()}`
+          }))
+        );
+      }
+    }
   }
 
-  // Obtener SID de un template por clave
   getTemplate(key) {
     return this.templates[key] || null;
   }
 
-  // Obtener template de productos para una categoría
   getProductTemplate(categoryId) {
     return this.templates.products?.[categoryId] || null;
   }
 
-  // Obtener template de opciones de un producto
   getProductOptionTemplate(productId) {
     return this.templates.productOptions?.[productId] || null;
   }
 
-  // Obtener template de variantes de un producto
   getProductVariantTemplate(productId) {
     return this.templates.productVariants?.[productId] || null;
+  }
+
+  getProductSizeTemplate(productId) {
+    return this.templates.productSizes?.[productId] || null;
   }
 }
 

@@ -6,6 +6,7 @@ const { formatDateTime } = require('../helpers/dateHelper');
 const { validateOrderData, validateStatusChange } = require('../validations/orderValidation');
 const { config } = require('../config/env');
 const AppError = require('../utils/appError');
+const socketService = require('./socketService');
 const logger = require('../utils/logger');
 
 class OrderService {
@@ -22,12 +23,14 @@ class OrderService {
           whatsappNumber: conversation.whatsappNumber,
           phone: conversation.tempCustomerData.phone,
           fullName: conversation.tempCustomerData.fullName,
+          neighborhood: conversation.tempCustomerData.neighborhood,
           address: conversation.tempCustomerData.address,
           addressReference: conversation.tempCustomerData.addressReference
         });
       } else {
         // Actualizar datos del cliente
         customer.fullName = conversation.tempCustomerData.fullName;
+        customer.neighborhood = conversation.tempCustomerData.neighborhood;
         customer.address = conversation.tempCustomerData.address;
         customer.addressReference = conversation.tempCustomerData.addressReference;
         customer.phone = conversation.tempCustomerData.phone;
@@ -35,9 +38,9 @@ class OrderService {
         await customer.save();
       }
 
-      // Calcular totales
+      // Calcular totales — precio de domicilio según barrio
       const subtotal = conversation.cart.reduce((sum, item) => sum + item.itemTotal, 0);
-      const deliveryPrice = config.business.deliveryPrice;
+      const deliveryPrice = conversation.tempCustomerData.deliveryPrice || config.business.deliveryPrice;
       const total = subtotal + deliveryPrice;
 
       // Crear el pedido
@@ -48,6 +51,7 @@ class OrderService {
           fullName: conversation.tempCustomerData.fullName,
           phone: conversation.tempCustomerData.phone,
           whatsappNumber: conversation.whatsappNumber,
+          neighborhood: conversation.tempCustomerData.neighborhood,
           address: conversation.tempCustomerData.address,
           addressReference: conversation.tempCustomerData.addressReference
         },
@@ -56,6 +60,7 @@ class OrderService {
           productName: item.productName,
           quantity: item.quantity || 1,
           basePrice: item.basePrice,
+          selectedSize: item.selectedSize,
           selectedOption: item.selectedOption,
           selectedVariant: item.selectedVariant,
           toppings: item.toppings || [],
@@ -67,6 +72,10 @@ class OrderService {
         deliveryPrice,
         total,
         paymentMethod: conversation.tempCustomerData.paymentMethod,
+        transferProofUrl: conversation.tempCustomerData.transferProofUrl || null,
+        transferConfirmed: conversation.tempCustomerData.paymentMethod === 'transferencia',
+        transferConfirmedAt: conversation.tempCustomerData.paymentMethod === 'transferencia' ? new Date() : null,
+        transferConfirmedBy: conversation.tempCustomerData.paymentMethod === 'transferencia' ? 'admin' : null,
         status: 'pendiente',
         statusHistory: [
           {
@@ -100,11 +109,14 @@ class OrderService {
 
   // Generar factura en texto para WhatsApp
   formatOrderReceipt(order) {
-    let receipt = '🧾✨ *FACTURA FRESATA* ✨🧾\n';
+    let receipt = '🧾✨ *FACTURA Fresanova* ✨🧾\n';
     receipt += '━━━━━━━━━━━━━━━━━━━━━\n\n';
     receipt += `📋 Pedido: *${order.orderNumber}*\n`;
     receipt += `📅 Fecha: ${formatDateTime(order.createdAt)}\n\n`;
     receipt += `👤 *Cliente:* ${order.customerInfo.fullName}\n`;
+    if (order.customerInfo.neighborhood) {
+      receipt += `🏘️ *Barrio:* ${order.customerInfo.neighborhood}\n`;
+    }
     receipt += `📍 *Dirección:* ${order.customerInfo.address}\n`;
     if (order.customerInfo.addressReference) {
       receipt += `🏠 *Referencia:* ${order.customerInfo.addressReference}\n`;
@@ -114,7 +126,11 @@ class OrderService {
     receipt += '🛒 *PRODUCTOS:*\n\n';
 
     order.items.forEach((item, index) => {
-      receipt += `${index + 1}. *${item.productName}*\n`;
+      receipt += `${index + 1}. *${item.productName}*`;
+      if (item.selectedSize && item.selectedSize.name) {
+        receipt += ` (${item.selectedSize.name})`;
+      }
+      receipt += '\n';
       receipt += `   Base: ${formatCurrency(item.basePrice)}\n`;
 
       if (item.selectedOption && item.selectedOption.name) {
@@ -188,6 +204,9 @@ class OrderService {
     }
 
     await order.save();
+
+    // Emitir evento de actualización en tiempo real
+    socketService.emitOrderStatusUpdate(order);
 
     logger.info(`Pedido ${order.orderNumber} actualizado a: ${newStatus}`);
     return order;

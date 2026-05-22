@@ -1,9 +1,8 @@
-// Script de seed — Carga el catálogo completo de Fresata en la base de datos
+// Script de seed — Carga el catálogo completo de Fresanova en la base de datos
 const mongoose = require('mongoose');
 const { config } = require('../config/env');
 const { Category, Product, Topping, Sauce } = require('../models');
 
-// Generar slug a partir de un nombre
 const generateSlug = (name) => {
   return name
     .toLowerCase()
@@ -19,7 +18,6 @@ const seedDatabase = async () => {
     await mongoose.connect(config.mongodbUri);
     console.log('✅ Conectado a MongoDB');
 
-    // Limpiar datos existentes y borrar índices para evitar conflictos
     const db = mongoose.connection.db;
     const collections = await db.listCollections().toArray();
     const collectionNames = collections.map((c) => c.name);
@@ -31,183 +29,124 @@ const seedDatabase = async () => {
     }
     console.log('🧹 Colecciones eliminadas');
 
-    // ==================== CATEGORÍAS ====================
-    console.log('📁 Creando categorías...');
+    // ==================== CATEGORÍA ====================
+    console.log('📁 Creando categoría...');
     const categoriesData = [
       {
         name: 'Fresas con Crema',
         slug: generateSlug('Fresas con Crema'),
         emoji: '🍓',
-        description: 'Nuestras deliciosas fresas con crema, el clásico de Fresata',
+        description: 'Nuestras deliciosas fresas con crema y más, el clásico de Fresa Nova',
         displayOrder: 1,
         image: 'https://via.placeholder.com/400x300?text=Fresas+con+Crema'
-      },
-      {
-        name: 'Bebidas',
-        slug: generateSlug('Bebidas'),
-        emoji: '🥤',
-        description: 'Refrescantes bebidas artesanales',
-        displayOrder: 2,
-        image: 'https://via.placeholder.com/400x300?text=Bebidas'
-      },
-      {
-        name: 'Fresas con Chocolate',
-        slug: generateSlug('Fresas con Chocolate'),
-        emoji: '🍫',
-        description: 'Fresas bañadas en el más delicioso chocolate',
-        displayOrder: 3,
-        image: 'https://via.placeholder.com/400x300?text=Fresas+con+Chocolate'
       }
     ];
 
     const categories = await Category.insertMany(categoriesData);
-    const [fresasCrema, bebidas, fresasChoco] = categories;
-    console.log(`✅ ${categories.length} categorías creadas`);
+    const [fresasCrema] = categories;
+    console.log(`✅ ${categories.length} categoría creada`);
 
     // ==================== PRODUCTOS ====================
     console.log('🛍️ Creando productos...');
     const productsData = [
-      // --- Fresas con Crema ---
       {
-        name: 'Fresata Classic',
-        slug: generateSlug('Fresata Classic'),
-        description: 'La clásica combinación de fresas frescas con crema. Incluye arequipe o leche condensada.',
-        basePrice: 20000,
+        name: 'Fresa con Crema',
+        slug: generateSlug('Fresa con Crema'),
+        description: 'Fresas picadas, crema de la casa, oreo triturada, piazza, chips de chocolate y salsa de tu preferencia.',
+        basePrice: 14900,
         category: fresasCrema._id,
         allowsToppings: true,
         allowsSauces: true,
         includedToppings: 0,
         includedSauces: 1,
-        includesNote: 'Incluye arequipe o leche condensada',
-        displayOrder: 1,
-        isFeatured: true,
-        image: 'https://via.placeholder.com/400x300?text=Fresata+Classic'
-      },
-      {
-        name: 'Fresata Match',
-        slug: generateSlug('Fresata Match'),
-        description: 'Fresas con crema y la combinación perfecta. Incluye 1 topping clásico + 1 salsa.',
-        basePrice: 22000,
-        category: fresasCrema._id,
-        allowsToppings: true,
-        allowsSauces: true,
-        includedToppings: 1,
-        includedSauces: 1,
-        includesNote: 'Incluye 1 topping clásico + 1 salsa',
-        displayOrder: 2,
-        image: 'https://via.placeholder.com/400x300?text=Fresata+Match'
-      },
-      {
-        name: 'Fresata Forever',
-        slug: generateSlug('Fresata Forever'),
-        description: 'La experiencia completa de Fresata. Incluye 2 toppings clásicos + 1 salsa.',
-        basePrice: 25000,
-        category: fresasCrema._id,
-        allowsToppings: true,
-        allowsSauces: true,
-        includedToppings: 2,
-        includedSauces: 1,
-        includesNote: 'Incluye 2 toppings clásicos + 1 salsa',
-        displayOrder: 3,
-        isFeatured: true,
-        image: 'https://via.placeholder.com/400x300?text=Fresata+Forever'
-      },
-      {
-        name: 'Fresata & Durazno',
-        slug: generateSlug('Fresata y Durazno'),
-        description: 'Fresas y durazno con crema. Incluye arequipe o leche condensada.',
-        basePrice: 20000,
-        category: fresasCrema._id,
-        allowsToppings: true,
-        allowsSauces: true,
-        includedToppings: 0,
-        includedSauces: 1,
-        includesNote: 'Incluye arequipe o leche condensada',
-        displayOrder: 4,
-        image: 'https://via.placeholder.com/400x300?text=Fresata+Durazno'
-      },
-      {
-        name: 'Fresata Minikids',
-        slug: generateSlug('Fresata Minikids'),
-        description: 'Porción especial para los más pequeños. Incluye 1 topping clásico + 1 salsa.',
-        basePrice: 15000,
-        category: fresasCrema._id,
-        allowsToppings: true,
-        allowsSauces: true,
-        includedToppings: 1,
-        includedSauces: 1,
-        includesNote: 'Incluye 1 topping clásico + 1 salsa',
-        displayOrder: 5,
-        image: 'https://via.placeholder.com/400x300?text=Fresata+Minikids'
-      },
-
-      // --- Bebidas ---
-      {
-        name: 'Pink Limonada',
-        slug: generateSlug('Pink Limonada'),
-        description: 'Limonada rosa refrescante y artesanal.',
-        basePrice: 12000,
-        category: bebidas._id,
-        allowsToppings: false,
-        allowsSauces: false,
-        variants: [{ name: 'Con soda', extraPrice: 2000 }],
-        displayOrder: 1,
-        image: 'https://via.placeholder.com/400x300?text=Pink+Limonada'
-      },
-      {
-        name: 'Milo Crema',
-        slug: generateSlug('Milo Crema'),
-        description: 'Delicioso Milo cremoso preparado con amor.',
-        basePrice: 15000,
-        category: bebidas._id,
-        allowsToppings: false,
-        allowsSauces: false,
-        displayOrder: 2,
-        image: 'https://via.placeholder.com/400x300?text=Milo+Crema'
-      },
-      {
-        name: 'Malteada Fresata',
-        slug: generateSlug('Malteada Fresata'),
-        description: 'Nuestra malteada signature con sabor a fresas.',
-        basePrice: 18000,
-        category: bebidas._id,
-        allowsToppings: false,
-        allowsSauces: false,
-        displayOrder: 3,
-        isFeatured: true,
-        image: 'https://via.placeholder.com/400x300?text=Malteada+Fresata'
-      },
-      {
-        name: 'Pink Ice Coffee',
-        slug: generateSlug('Pink Ice Coffee'),
-        description: 'Café helado rosado con un toque especial Fresata.',
-        basePrice: 15000,
-        category: bebidas._id,
-        allowsToppings: false,
-        allowsSauces: false,
-        displayOrder: 4,
-        image: 'https://via.placeholder.com/400x300?text=Pink+Ice+Coffee'
-      },
-
-      // --- Fresas con Chocolate ---
-      {
-        name: 'Fresas con Chocolate',
-        slug: generateSlug('Fresas con Chocolate'),
-        description: 'Fresas frescas bañadas en chocolate de primera calidad.',
-        basePrice: 18000,
-        category: fresasChoco._id,
-        allowsToppings: true,
-        allowsSauces: true,
-        includedToppings: 0,
-        includedSauces: 0,
-        options: [
-          { name: 'Chocolate negro', extraPrice: 0 },
-          { name: 'Chocolate blanco', extraPrice: 0 },
-          { name: 'Combinado', extraPrice: 0 }
+        includesNote: 'Incluye salsa de tu preferencia',
+        sizes: [
+          { name: 'Pequeño', price: 14900 },
+          { name: 'Mediano', price: 19900 },
+          { name: 'Grande', price: 23900 }
         ],
         displayOrder: 1,
-        isFeatured: true,
-        image: 'https://via.placeholder.com/400x300?text=Fresas+con+Chocolate'
+        isFeatured: true
+      },
+      {
+        name: 'Durazno con Crema',
+        slug: generateSlug('Durazno con Crema'),
+        description: 'Durazno picado, crema de la casa, oreo triturada, piazza, chips de chocolate y salsa de tu preferencia.',
+        basePrice: 14900,
+        category: fresasCrema._id,
+        allowsToppings: true,
+        allowsSauces: true,
+        includedToppings: 0,
+        includedSauces: 1,
+        includesNote: 'Incluye salsa de tu preferencia',
+        sizes: [
+          { name: 'Pequeño', price: 14900 },
+          { name: 'Mediano', price: 19900 },
+          { name: 'Grande', price: 23900 }
+        ],
+        displayOrder: 2
+      },
+      {
+        name: 'Triple Tentación de Chocolate',
+        slug: generateSlug('Triple Tentacion de Chocolate'),
+        description: 'Fresas picadas, crema de la casa, oreo triturada, chips de chocolates, piazza, brownie y nutella.',
+        basePrice: 19500,
+        category: fresasCrema._id,
+        allowsToppings: true,
+        allowsSauces: false,
+        includedToppings: 0,
+        includedSauces: 0,
+        sizes: [
+          { name: 'Pequeño', price: 19500 },
+          { name: 'Mediano', price: 24900 },
+          { name: 'Grande', price: 27900 }
+        ],
+        displayOrder: 3,
+        isFeatured: true
+      },
+      {
+        name: 'Tentación Blanca',
+        slug: generateSlug('Tentacion Blanca'),
+        description: 'Fresas picadas, crema de la casa, oreo triturada, leche en polvo, piazza, chocorramo y mamut.',
+        basePrice: 18900,
+        category: fresasCrema._id,
+        allowsToppings: true,
+        allowsSauces: false,
+        includedToppings: 0,
+        includedSauces: 0,
+        sizes: [
+          { name: 'Pequeño', price: 18900 },
+          { name: 'Mediano', price: 23900 },
+          { name: 'Grande', price: 26900 }
+        ],
+        displayOrder: 4
+      },
+      {
+        name: 'Barquillo de Fresa Nova',
+        slug: generateSlug('Barquillo de Fresa Nova'),
+        description: 'Fresas enteras, chocolate derretido, leche en polvo, masmelo y piazza.',
+        basePrice: 14900,
+        category: fresasCrema._id,
+        allowsToppings: true,
+        allowsSauces: false,
+        includedToppings: 0,
+        includedSauces: 0,
+        sizes: [],
+        displayOrder: 5
+      },
+      {
+        name: 'Super Bowl de Fresa Nova',
+        slug: generateSlug('Super Bowl de Fresa Nova'),
+        description: 'Fresas enteras, chocolate derretido, chips de chocolate, leche en polvo, crema de la casa, piazza y gol.',
+        basePrice: 23900,
+        category: fresasCrema._id,
+        allowsToppings: true,
+        allowsSauces: false,
+        includedToppings: 0,
+        includedSauces: 0,
+        sizes: [],
+        displayOrder: 6,
+        isFeatured: true
       }
     ];
 
@@ -217,38 +156,36 @@ const seedDatabase = async () => {
     // ==================== TOPPINGS ====================
     console.log('🧁 Creando toppings...');
     const toppings = await Topping.insertMany([
-      { name: 'Oreo', price: 3000, priceGroup: '3000', displayOrder: 1 },
-      { name: 'Leche en polvo', price: 3000, priceGroup: '3000', displayOrder: 2 },
-      { name: 'Queso', price: 3000, priceGroup: '3000', displayOrder: 3 },
-      { name: 'Chip de chocolate', price: 3000, priceGroup: '3000', displayOrder: 4 },
-      { name: 'Zucarita', price: 3000, priceGroup: '3000', displayOrder: 5 },
-      { name: 'Zlips', price: 3000, priceGroup: '3000', displayOrder: 6 },
-      { name: 'Piazza', price: 3000, priceGroup: '3000', displayOrder: 7 },
-      { name: 'Masmelo', price: 3000, priceGroup: '3000', displayOrder: 8 },
-      { name: 'Milo', price: 3000, priceGroup: '3000', displayOrder: 9 },
-      { name: 'Maní', price: 3000, priceGroup: '3000', displayOrder: 10 },
-      { name: 'Gomitas', price: 3000, priceGroup: '3000', displayOrder: 11 },
-      { name: 'Quipito', price: 3000, priceGroup: '3000', displayOrder: 12 },
-      { name: 'Coco rayado', price: 3000, priceGroup: '3000', displayOrder: 13 },
-      { name: 'Fresas', price: 3000, priceGroup: '3000', displayOrder: 14 },
-      { name: 'Nutella', price: 4000, priceGroup: '4000', displayOrder: 15 },
-      { name: 'Biscolata', price: 4000, priceGroup: '4000', displayOrder: 16 },
-      { name: 'M&M', price: 4000, priceGroup: '4000', displayOrder: 17 },
-      { name: 'Brownie', price: 4000, priceGroup: '4000', displayOrder: 18 },
-      { name: 'Durazno', price: 4000, priceGroup: '4000', displayOrder: 19 },
-      { name: 'Extra crema Fresata', price: 5000, priceGroup: '5000', displayOrder: 20 },
-      { name: 'Pistacho triturado', price: 5000, priceGroup: '5000', displayOrder: 21 },
-      { name: 'Crema de pistacho', price: 7000, priceGroup: '7000', displayOrder: 22 }
+      // Toppings $2.000
+      { name: 'Mamut', price: 2000, priceGroup: '2000', displayOrder: 1 },
+      { name: 'Piazza', price: 2000, priceGroup: '2000', displayOrder: 2 },
+      { name: 'Oreo', price: 2000, priceGroup: '2000', displayOrder: 3 },
+      { name: 'Chips chocolate', price: 2000, priceGroup: '2000', displayOrder: 4 },
+      { name: 'Zucarita', price: 2000, priceGroup: '2000', displayOrder: 5 },
+      { name: 'Maní triturado', price: 2000, priceGroup: '2000', displayOrder: 6 },
+      { name: 'Quipito', price: 2000, priceGroup: '2000', displayOrder: 7 },
+      { name: 'Masmelo', price: 2000, priceGroup: '2000', displayOrder: 8 },
+      { name: 'Leche en polvo', price: 2000, priceGroup: '2000', displayOrder: 9 },
+      { name: 'Milo', price: 2000, priceGroup: '2000', displayOrder: 10 },
+      { name: 'Gol', price: 2000, priceGroup: '2000', displayOrder: 11 },
+      { name: 'Burbuja Jet', price: 2000, priceGroup: '2000', displayOrder: 12 },
+      { name: 'Chocorramo', price: 2000, priceGroup: '2000', displayOrder: 13 },
+      { name: 'Moritas', price: 2000, priceGroup: '2000', displayOrder: 14 },
+      // Toppings $3.000
+      { name: 'Biscolata', price: 3000, priceGroup: '3000', displayOrder: 15 },
+      { name: 'M & M', price: 3000, priceGroup: '3000', displayOrder: 16 },
+      // Toppings Premium $3.500
+      { name: 'Brownie', price: 3500, priceGroup: '3500', displayOrder: 17 },
+      { name: 'Nutella', price: 3500, priceGroup: '3500', displayOrder: 18 }
     ]);
     console.log(`✅ ${toppings.length} toppings creados`);
 
-    // ==================== SALSAS ====================
+    // ==================== SALSAS (gratuitas) ====================
     console.log('🍯 Creando salsas...');
     const sauces = await Sauce.insertMany([
-      { name: 'Arequipe', price: 3000, displayOrder: 1 },
-      { name: 'Leche condensada', price: 3000, displayOrder: 2 },
-      { name: 'Chocolate', price: 3000, displayOrder: 3 },
-      { name: 'Chocolate blanco', price: 3000, displayOrder: 4 }
+      { name: 'Leche Condensada', price: 0, displayOrder: 1 },
+      { name: 'Chocolate', price: 0, displayOrder: 2 },
+      { name: 'Arequipe', price: 0, displayOrder: 3 }
     ]);
     console.log(`✅ ${sauces.length} salsas creadas`);
 

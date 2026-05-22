@@ -32,14 +32,22 @@ const conversationSchema = new mongoose.Schema(
         'confirming_item',
         'adding_more',
         'entering_name',
+        'entering_neighborhood',
         'entering_address',
         'asking_reference',
         'typing_reference',
         'entering_phone',
         'selecting_payment',
         'confirming_order',
+        'selecting_size',
         'using_existing_data',
         'tracking_order',
+        'changing_topping',
+        'awaiting_transfer_proof',
+        'awaiting_transfer_confirmation',
+        'editing_order',
+        'editing_item',
+        'live_chat',
         'free_chat'
       ],
       default: 'idle'
@@ -50,6 +58,7 @@ const conversationSchema = new mongoose.Schema(
         product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
         productName: String,
         basePrice: Number,
+        selectedSize: { name: String, price: Number },
         selectedOption: { name: String, extraPrice: Number },
         selectedVariant: { name: String, extraPrice: Number },
         toppings: [{ topping: mongoose.Schema.Types.ObjectId, name: String, price: Number }],
@@ -62,16 +71,20 @@ const conversationSchema = new mongoose.Schema(
     // Datos temporales del cliente durante el flujo
     tempCustomerData: {
       fullName: String,
+      neighborhood: String,
+      deliveryPrice: Number,
       address: String,
       addressReference: String,
       phone: String,
-      paymentMethod: String
+      paymentMethod: String,
+      transferProofUrl: String
     },
     // Item en proceso de configuración
     currentItem: {
       product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       productName: String,
       basePrice: Number,
+      selectedSize: { name: String, price: Number },
       selectedOption: { name: String, extraPrice: Number },
       selectedVariant: { name: String, extraPrice: Number },
       toppings: [{ topping: mongoose.Schema.Types.ObjectId, name: String, price: Number }],
