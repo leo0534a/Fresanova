@@ -105,11 +105,15 @@ echo ""
 
 echo "📂 [FASE 2] Clonando proyecto desde GitHub..."
 
-# Clonar el proyecto
+# Configurar git safe directory
+git config --global --add safe.directory "$APP_DIR"
+
+# Clonar o actualizar el proyecto
 if [ -d "$APP_DIR" ]; then
     echo "   Proyecto ya existe, actualizando..."
     cd "$APP_DIR"
-    git pull origin main
+    git fetch origin main
+    git reset --hard origin/main
 else
     su - fresanova -c "git clone $GIT_REPO $APP_DIR"
 fi
